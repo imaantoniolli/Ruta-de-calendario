@@ -707,7 +707,7 @@ function login(code){
       status('Se cortó la escucha'+(c?(' ('+esc(c)+')'):'')+'. Tocá Entrar de nuevo.','err');});
   }).catch(err=>{
     sync.on=false;setDot('err');const c=err&&err.code?err.code:'';
-    status('No pude leer la nube'+(c?(' ('+esc(c)+')'):'')+'. '+(c==='permission-denied'?'Revisá las reglas de Firestore (allow read, write: if true;).':'Revisá tu conexión.'),'err');
+    status('No pude leer la nube'+(c?(' ('+esc(c)+')'):'')+'. '+(c==='permission-denied'?'Revisá las reglas de Firestore (allow read, write: if true;).':c==='unavailable'?'Tu navegador está bloqueando la conexión a la base de datos. Si usás <b>Brave</b>: tocá el león en la barra y apagá Shields para este sitio. Si tenés un bloqueador de anuncios, permitílo acá. O probá en Chrome.':'Revisá tu conexión.'),'err');
   });
 }
 function pushRemote(force){
@@ -732,7 +732,7 @@ function testConn(){
   db.collection('planners').doc('__test__').set({ts:Date.now()})
     .then(()=>db.collection('planners').doc('__test__').get())
     .then(()=>status('Conexión OK ✓ ida y vuelta en '+((Date.now()-t0)/1000).toFixed(1)+' s.','on'))
-    .catch(err=>{const c=err&&err.code?err.code:'';status('Falló la prueba'+(c?(' ('+esc(c)+')'):'')+'. '+(c==='permission-denied'?'Revisá las reglas de Firestore.':'Revisá la configuración.'),'err');});
+    .catch(err=>{const c=err&&err.code?err.code:'';status('Falló la prueba'+(c?(' ('+esc(c)+')'):'')+'. '+(c==='permission-denied'?'Revisá las reglas de Firestore.':c==='unavailable'?'Tu navegador bloquea la conexión (Brave Shields o un bloqueador de anuncios). Permitila para este sitio o probá en Chrome.':'Revisá la configuración.'),'err');});
 }
 function logout(){
   sync.unsub&&sync.unsub();sync.unsub=null;sync.on=false;
