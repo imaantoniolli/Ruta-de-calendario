@@ -617,7 +617,11 @@ function closeOv(id){$('#'+id).classList.remove('open');}
 
 /* ================= SYNC ================= */
 const sync={code:null,db:null,unsub:null,applying:false,on:false,last:0};
-function loadSyncPrefs(){try{sync.code=localStorage.getItem('rf-code')||null;}catch(e){}}
+function loadSyncPrefs(){try{
+  let c=localStorage.getItem('rf-code')||null;
+  if(c){c=c.trim().toLowerCase();localStorage.setItem('rf-code',c);}
+  sync.code=c;
+}catch(e){}}
 function setDot(cls){const d=$('#sdot');if(d)d.className='dot'+(cls?(' '+cls):'');
   $('#slbl').textContent=sync.on?(sync.code||'En la nube'):'Sincronizar';}
 function status(msg,cls){const s=$('#syncStatus');if(s){s.className='status'+(cls?(' '+cls):'');s.innerHTML=msg;}}
@@ -627,10 +631,10 @@ function ensureDb(){
   try{
     if(!firebase.apps.length)firebase.initializeApp(FIREBASE_CONFIG);
     const db=firebase.firestore();
-    /* clave anti-lentitud: detecta redes que bloquean el canal rápido
-       (móviles, proxies) y cambia a long-polling al instante en vez de
-       esperar el timeout de ~40-60 s */
-    try{db.settings({experimentalAutoDetectLongPolling:true,merge:true});}catch(e){}
+    /* clave anti-lentitud: usamos directamente el canal compatible con
+       cualquier red (long-polling). Evita la espera de 30-60 s que produce
+       el canal rápido cuando la red lo bloquea. */
+    try{db.settings({experimentalForceLongPolling:true,merge:true});}catch(e){}
     sync.db=db; return db;
   }catch(e){return null;}
 }
@@ -639,17 +643,27 @@ function subscribe(){
   sync.unsub&&sync.unsub();setDot('wait');status('Conectando…');
   sync.unsub=db.collection('planners').doc(sync.code).onSnapshot({includeMetadataChanges:false},doc=>{
     try{
+      let cloudInfo='';
       if(doc.exists&&doc.data()&&doc.data().json){
-        if(!doc.metadata.hasPendingWrites){
+        let remote=null; try{remote=JSON.parse(doc.data().json);}catch(e){}
+        const rn=remote&&remote.exams?remote.exams.length:0;
+        const rp=remote&&remote.paths?remote.paths.length:0;
+        cloudInfo='En la nube: <b>'+rn+'</b> exámenes, <b>'+rp+'</b> caminos.';
+        if(!doc.metadata.hasPendingWrites&&remote){
           sync.applying=true;
-          try{state=JSON.parse(doc.data().json);normalize();
-            try{localStorage.setItem(STORE,JSON.stringify(state));}catch(e){}
-            render();if($('#pathsOv').classList.contains('open'))renderPaths();}catch(e){}
+          state=remote;normalize();
+          try{localStorage.setItem(STORE,JSON.stringify(state));}catch(e){}
+          render();if($('#pathsOv').classList.contains('open'))renderPaths();
           sync.applying=false;
         }
-      }else{ pushRemote(true); }
+      }else{
+        /* el documento no existe todavía: solo lo creamos si este
+           dispositivo tiene datos; un dispositivo vacío jamás pisa nada */
+        if(state.exams.length||state.paths.length){ pushRemote(true); cloudInfo='Creando el documento con tus datos…'; }
+        else{ cloudInfo='Código nuevo: la nube está vacía. Cargá un examen y aparecerá en todos lados.'; }
+      }
       sync.on=true;sync.last=Date.now();setDot('on');
-      status('Sincronizado ✓ como <b>'+esc(sync.code)+'</b>.<br>Última actualización: <b>'+new Date().toLocaleTimeString()+'</b>. Los cambios aparecen solos en cualquier dispositivo con este código.','on');
+      status('Sincronizado ✓ como <b>'+esc(sync.code)+'</b> · '+new Date().toLocaleTimeString()+'.<br>'+cloudInfo,'on');
     }catch(e){}
   },err=>{sync.on=false;setDot('err');const c=err&&err.code?err.code:'';
     status('No pude sincronizar'+(c?(' ('+esc(c)+')'):'')+'. '+(c==='permission-denied'?'Faltan las reglas de Firestore (allow read, write: if true;).':'Revisá que Firestore esté creado.'),'err');});
