@@ -286,11 +286,9 @@
   </div>
 </div></div>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
 "use strict";
-const APP_VERSION='6';
+const APP_VERSION='7';
 
 /* ======================================================================
    CONFIGURACIÓN DE LA NUBE — completar UNA SOLA VEZ (ya está tu proyecto).
@@ -635,25 +633,41 @@ function renderPlan(){
 function openOv(id){$('#'+id).classList.add('open');if(id==='pathsOv')renderPaths();if(id==='syncOv')fillSync();}
 function closeOv(id){$('#'+id).classList.remove('open');}
 
-/* ================= USUARIO EN LA NUBE =================
+/* ================= USUARIO EN LA NUBE (HTTPS directo, sin SDK) =================
    Modelo: el código de usuario ES el dataset.
    - Entrar: baja de la nube la configuración del usuario y la muestra (siempre).
-   - Cada cambio local se sube inmediatamente con la firma del dispositivo.
-   - El listener aplica todo cambio firmado por OTRO dispositivo. */
-const sync={db:null,unsub:null,on:false,last:0};
+   - Cada cambio se sube al instante por HTTPS común (fetch).
+   - Un sondeo cada 2,5 s trae lo que cambió en otros dispositivos. */
+const sync={on:false,last:0,lastTs:0,timer:null,polling:false};
+const FS_BASE='https://firestore.googleapis.com/v1/projects/'+FIREBASE_CONFIG.projectId+'/databases/(default)/documents/planners/';
+function fsUrl(code){return FS_BASE+encodeURIComponent(code)+'?key='+encodeURIComponent(FIREBASE_CONFIG.apiKey);}
+function fsParse(doc){ /* documento REST → {json,ts,by} */
+  try{const f=doc.fields||{};
+    return {json:f.json&&f.json.stringValue||null,
+            ts:f.ts?parseInt(f.ts.integerValue||f.ts.doubleValue||0):0,
+            by:f.by&&f.by.stringValue||''};
+  }catch(e){return {json:null,ts:0,by:''};}
+}
+async function fsGet(code){
+  const r=await fetch(fsUrl(code),{cache:'no-store'});
+  if(r.status===404)return {missing:true};
+  if(!r.ok)throw {code:'http-'+r.status};
+  return fsParse(await r.json());
+}
+async function fsPut(code,obj){
+  const body={fields:{json:{stringValue:obj.json},ts:{integerValue:String(obj.ts)},by:{stringValue:obj.by}}};
+  const r=await fetch(fsUrl(code),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok)throw {code:'http-'+r.status};
+}
+function errHelp(c){
+  if(c==='http-403')return 'Faltan las reglas de Firestore: en la consola poné allow read, write: if true; y publicá.';
+  if(c==='http-400')return 'Revisá que Firestore Database esté creado en el proyecto.';
+  if(String(c).indexOf('http-')===0)return 'La nube respondió con un error ('+c+').';
+  return 'No llega al servidor: revisá internet, VPN o DNS privado del dispositivo.';
+}
 function setDot(cls){const d=$('#sdot');if(d)d.className='dot'+(cls?(' '+cls):'');
   $('#slbl').textContent=USER?USER:'Ingresar';}
 function status(msg,cls){const s=$('#syncStatus');if(s){s.className='status'+(cls?(' '+cls):'');s.innerHTML=msg;}}
-function ensureDb(){
-  if(sync.db)return sync.db;
-  if(!CLOUD_READY||typeof firebase==='undefined')return null;
-  try{
-    if(!firebase.apps.length)firebase.initializeApp(FIREBASE_CONFIG);
-    const db=firebase.firestore();
-    try{db.settings({experimentalForceLongPolling:true,merge:true});}catch(e){}
-    sync.db=db; return db;
-  }catch(e){return null;}
-}
 function applyRemote(json){
   try{
     const remote=JSON.parse(json);
@@ -666,25 +680,44 @@ function applyRemote(json){
 function cloudCounts(json){
   try{const r=JSON.parse(json);return {e:(r.exams||[]).length,p:(r.paths||[]).length};}catch(x){return {e:0,p:0};}
 }
+function startPolling(){
+  stopPolling();
+  sync.timer=setInterval(poll,2500);
+  document.addEventListener('visibilitychange',onVis);
+}
+function stopPolling(){if(sync.timer){clearInterval(sync.timer);sync.timer=null;}
+  document.removeEventListener('visibilitychange',onVis);}
+function onVis(){if(document.visibilityState==='visible')poll();}
+async function poll(){
+  if(!USER||sync.polling||document.visibilityState!=='visible')return;
+  sync.polling=true;
+  try{
+    const d=await fsGet(USER);
+    sync.on=true;sync.last=Date.now();setDot('on');
+    if(!d.missing&&d.json&&d.ts>sync.lastTs&&d.by!==DEVICE_ID){
+      sync.lastTs=d.ts;
+      applyRemote(d.json);
+      const cc=cloudCounts(d.json);
+      status('Actualizado desde otro dispositivo ✓ '+new Date().toLocaleTimeString()+'<br>Ahora: <b>'+cc.e+'</b> exámenes, <b>'+cc.p+'</b> caminos.','on');
+    }
+  }catch(err){sync.on=false;setDot('err');}
+  sync.polling=false;
+}
 function login(code){
-  const db=ensureDb();
-  if(!db){status('No se cargó Firebase. Abrí la app desde tu URL de hosting, con internet.','err');setDot('err');return;}
   USER=code;lsSet('rf-code',code);
   setDot('wait');status('Buscando la configuración de <b>'+esc(code)+'</b>…');
-  const ref=db.collection('planners').doc(code);
-  /* 1) SIEMPRE traer primero lo que hay en la nube y mostrarlo */
-  ref.get().then(doc=>{
-    if(doc.exists&&doc.data()&&doc.data().json){
-      applyRemote(doc.data().json);
-      const cc=cloudCounts(doc.data().json);
+  fsGet(code).then(d=>{
+    if(!d.missing&&d.json){
+      sync.lastTs=d.ts||0;
+      applyRemote(d.json);
+      const cc=cloudCounts(d.json);
       sync.on=true;sync.last=Date.now();setDot('on');
       status('Entraste como <b>'+esc(code)+'</b> ✓<br>Cargado de la nube: <b>'+cc.e+'</b> exámenes, <b>'+cc.p+'</b> caminos.','on');
     }else{
-      /* usuario nuevo en la nube */
       const local=loadLocal();state=local;normalize();
       if(state.exams.length||state.paths.length){
         pushRemote(true);
-        status('Usuario nuevo <b>'+esc(code)+'</b>: subí los datos de este dispositivo a la nube ('+state.exams.length+' exámenes).','on');
+        status('Usuario nuevo <b>'+esc(code)+'</b>: subí los datos de este dispositivo ('+state.exams.length+' exámenes).','on');
       }else{
         state={exams:[],paths:[]};saveLocal();
         status('Usuario nuevo <b>'+esc(code)+'</b>: sin datos aún. Cargá un examen y quedará guardado en tu usuario.','on');
@@ -692,30 +725,19 @@ function login(code){
       sync.on=true;sync.last=Date.now();setDot('on');
       render();
     }
-    /* 2) escuchar cambios de otros dispositivos */
-    sync.unsub&&sync.unsub();
-    sync.unsub=ref.onSnapshot(snap=>{
-      const d=snap.data();
-      if(!d||!d.json)return;
-      sync.last=Date.now();
-      if(d.by===DEVICE_ID)return;      /* es nuestro propio eco */
-      applyRemote(d.json);
-      const cc=cloudCounts(d.json);
-      setDot('on');
-      status('Actualizado desde otro dispositivo ✓ '+new Date().toLocaleTimeString()+'<br>Ahora: <b>'+cc.e+'</b> exámenes, <b>'+cc.p+'</b> caminos.','on');
-    },err=>{sync.on=false;setDot('err');const c=err&&err.code?err.code:'';
-      status('Se cortó la escucha'+(c?(' ('+esc(c)+')'):'')+'. Tocá Entrar de nuevo.','err');});
+    startPolling();
   }).catch(err=>{
     sync.on=false;setDot('err');const c=err&&err.code?err.code:'';
-    status('No pude leer la nube'+(c?(' ('+esc(c)+')'):'')+'. '+(c==='permission-denied'?'Revisá las reglas de Firestore (allow read, write: if true;).':c==='unavailable'?'Tu navegador está bloqueando la conexión a la base de datos. Si usás <b>Brave</b>: tocá el león en la barra y apagá Shields para este sitio. Si tenés un bloqueador de anuncios, permitílo acá. O probá en Chrome.':'Revisá tu conexión.'),'err');
+    status('No pude leer la nube'+(c?(' ('+esc(c)+')'):'')+'. '+errHelp(c),'err');
   });
 }
 function pushRemote(force){
-  const db=ensureDb();if(!db||!USER)return;
-  db.collection('planners').doc(USER).set({json:JSON.stringify(state),ts:Date.now(),by:DEVICE_ID})
-    .then(()=>{sync.last=Date.now();setDot('on');})
+  if(!USER)return;
+  const ts=Date.now();
+  fsPut(USER,{json:JSON.stringify(state),ts:ts,by:DEVICE_ID})
+    .then(()=>{sync.lastTs=ts;sync.last=Date.now();sync.on=true;setDot('on');})
     .catch(err=>{setDot('err');const c=err&&err.code?err.code:'';
-      status('No pude guardar en la nube'+(c?(' ('+esc(c)+')'):'')+'.','err');});
+      status('No pude guardar en la nube'+(c?(' ('+esc(c)+')'):'')+'. '+errHelp(c),'err');});
 }
 function enterCode(){
   const code=($('#syncCode').value||'').trim().toLowerCase();
@@ -726,16 +748,15 @@ function enterCode(){
 }
 function testConn(){
   if(!CLOUD_READY){$('#setupBox').style.display='block';status('Primero configurá la nube (ver abajo).','err');return;}
-  const db=ensureDb();if(!db){status('No se cargó Firebase. Probá desde tu URL de hosting.','err');return;}
   status('Probando…');
   const t0=Date.now();
-  db.collection('planners').doc('__test__').set({ts:Date.now()})
-    .then(()=>db.collection('planners').doc('__test__').get())
+  fsPut('__test__',{json:'{}',ts:Date.now(),by:DEVICE_ID})
+    .then(()=>fsGet('__test__'))
     .then(()=>status('Conexión OK ✓ ida y vuelta en '+((Date.now()-t0)/1000).toFixed(1)+' s.','on'))
-    .catch(err=>{const c=err&&err.code?err.code:'';status('Falló la prueba'+(c?(' ('+esc(c)+')'):'')+'. '+(c==='permission-denied'?'Revisá las reglas de Firestore.':c==='unavailable'?'Tu navegador bloquea la conexión (Brave Shields o un bloqueador de anuncios). Permitila para este sitio o probá en Chrome.':'Revisá la configuración.'),'err');});
+    .catch(err=>{const c=err&&err.code?err.code:'';status('Falló la prueba'+(c?(' ('+esc(c)+')'):'')+'. '+errHelp(c),'err');});
 }
 function logout(){
-  sync.unsub&&sync.unsub();sync.unsub=null;sync.on=false;
+  stopPolling();sync.on=false;
   USER=null;lsDel('rf-code');
   state=loadLocal();normalize();
   setDot('');render();
