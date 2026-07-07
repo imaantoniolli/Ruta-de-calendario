@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#F3F2EE">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>Ruta de finales</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -197,13 +198,14 @@
   .hr{height:1px;background:var(--line);margin:18px 0}
   details summary{cursor:pointer;font-size:13px;font-weight:600;padding:4px 0}
   code{background:#E7E5DE;padding:1px 6px;border-radius:6px;font-size:.9em}
+  .ver{font-size:10px;color:#B9B6AD;text-align:center;padding:8px 0 2px;letter-spacing:.08em}
 </style>
 </head>
 <body>
 
 <header>
   <h1>Ruta de finales</h1>
-  <button class="pill" id="syncPill"><span class="dot" id="sdot"></span><span class="lbl" id="slbl">Sincronizar</span></button>
+  <button class="pill" id="syncPill"><span class="dot" id="sdot"></span><span class="lbl" id="slbl">Ingresar</span></button>
 </header>
 
 <main>
@@ -245,15 +247,15 @@
   <div class="ov-body" id="planBody"></div>
 </div></div>
 
-<!-- sync overlay -->
+<!-- user overlay -->
 <div class="ov" id="syncOv"><div class="ov-card">
-  <div class="ov-h"><button class="ov-back" data-close="syncOv">‹ Volver</button><h2>Sincronizar</h2></div>
+  <div class="ov-h"><button class="ov-back" data-close="syncOv">‹ Volver</button><h2>Tu usuario</h2></div>
   <div class="ov-body">
     <div class="status" id="syncStatus"></div>
     <div class="field">
-      <label>Tu código (como un usuario)</label>
+      <label>Código de usuario</label>
       <input id="syncCode" type="text" placeholder="ej: mi-padron-12345" autocomplete="off" autocapitalize="off" spellcheck="false">
-      <div class="muted-note">Poné el <b>mismo código</b> en todos tus dispositivos. Quien lo sepa puede ver estos datos: elegí uno difícil.</div>
+      <div class="muted-note">Tu configuración vive en la nube bajo este código. Entrá con el <b>mismo código</b> en cualquier dispositivo y vas a ver exactamente lo mismo. Quien lo sepa puede verlo: elegí uno difícil.</div>
     </div>
     <div style="display:flex;gap:9px"><button class="btn" id="syncOff" style="flex:1">Salir</button><button class="btn primary" id="syncGo" style="flex:2">Entrar</button></div>
     <button class="btn sm" id="syncTest" style="width:100%;margin-top:9px">Probar conexión</button>
@@ -271,7 +273,7 @@
     </div>
 
     <div class="hr"></div>
-    <details><summary>Sin nube: copiar / pegar datos (respaldo manual)</summary>
+    <details><summary>Respaldo manual: copiar / pegar datos</summary>
       <div class="field" style="margin-top:10px;margin-bottom:0">
         <textarea id="ioBox" placeholder="Acá aparece tu copia…"></textarea>
         <div style="display:flex;gap:9px;margin-top:9px">
@@ -280,6 +282,7 @@
         </div>
       </div>
     </details>
+    <div class="ver" id="verLbl"></div>
   </div>
 </div></div>
 
@@ -287,6 +290,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
 "use strict";
+const APP_VERSION='6';
 
 /* ======================================================================
    CONFIGURACIÓN DE LA NUBE — completar UNA SOLA VEZ (ya está tu proyecto).
@@ -306,19 +310,39 @@ const $=s=>document.querySelector(s);
 const MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const DIA=['dom','lun','mar','mié','jue','vie','sáb'];
 const SUBJECT_COLORS=['#A8C3A0','#9FB8D3','#D9A79A','#DBC69A','#B8A8CC','#96C2BC','#D3A0B4','#B5B88A','#C9AC91','#A3B6BC'];
-/* rutas: tonos hondos y apagados, acordes al papel */
 const PATH_COLORS=['#8A5D52','#5B7183','#67805F','#96793F','#75688A','#54807B','#8A5F70','#6E6A55'];
-const STORE='ruta-finales-v3';
-const GUT=16;   /* separación entre carriles */
-const LANE0=10; /* primer carril desde el borde izquierdo del contenido */
+const GUT=16, LANE0=10;
 
-let state=load()||{exams:[],paths:[]};
+/* ---------- identidad del dispositivo y del usuario ---------- */
+function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function lsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k);}catch(e){}}
+const DEVICE_ID=(function(){let d=lsGet('rf-device');if(!d){d=Math.random().toString(36).slice(2,10);lsSet('rf-device',d);}return d;})();
+let USER=(lsGet('rf-code')||'').trim().toLowerCase()||null;
+if(USER)lsSet('rf-code',USER);
+
+/* los datos locales se guardan POR USUARIO: cambiar de usuario cambia el dataset */
+function storeKey(){return 'rf-data:'+(USER||'local');}
+
+let state=loadLocal();
 normalize();
 let build=false, draft=[], iso=null, expanded=new Set();
 let form=null;
 
-function load(){try{return JSON.parse(localStorage.getItem(STORE));}catch(e){return null;}}
-function save(){try{localStorage.setItem(STORE,JSON.stringify(state));}catch(e){} pushRemote();}
+function loadLocal(){
+  try{
+    const raw=localStorage.getItem(storeKey());
+    if(raw)return JSON.parse(raw);
+    /* migración desde versiones anteriores (almacén global), una sola vez */
+    if(!lsGet('rf-migrated')){
+      const old=localStorage.getItem('ruta-finales-v3');
+      if(old){lsSet('rf-migrated','1');return JSON.parse(old);}
+    }
+  }catch(e){}
+  return {exams:[],paths:[]};
+}
+function saveLocal(){lsSet(storeKey(),JSON.stringify(state));}
+function save(){saveLocal();pushRemote();}
 const uid=()=>Math.random().toString(36).slice(2,9);
 function num(v,d){return typeof v==='number'?v:d;}
 function normalize(){
@@ -371,12 +395,12 @@ function weeks(){
   return out;
 }
 
-/* ---- board (vertical, con canaleta de rutas a la izquierda) ---- */
+/* ---- board ---- */
 function gutterWidth(){const n=Math.max(state.paths.length,build?1:0);return n?LANE0+n*GUT+6:0;}
 function render(){
   try{ renderInner(); }
   catch(err){
-    $('#weeks').innerHTML='<div class="empty-note">Ocurrió un error al dibujar. Tocá <b>Caminos → Vaciar todo</b> si persiste, o avisame el mensaje: <br><code>'+esc(err.message||err)+'</code></div>';
+    $('#weeks').innerHTML='<div class="empty-note">Ocurrió un error al dibujar: <code>'+esc(err.message||err)+'</code></div>';
   }
 }
 function renderInner(){
@@ -385,8 +409,8 @@ function renderInner(){
   if(!state.exams.length){
     wrap.style.marginLeft='0px';
     wrap.innerHTML=`<div style="margin:auto;max-width:340px;text-align:center;color:var(--muted);padding:40px 8px">
-      <div style="font-family:var(--disp);font-size:18px;font-weight:600;color:var(--ink);margin-bottom:7px">Todavía no hay exámenes</div>
-      <div style="font-size:13.5px;line-height:1.65">Tocá <b style="color:var(--ink)">Examen</b> abajo para cargar tu primer final, o probá con un ejemplo desde <b style="color:var(--ink)">Caminos → Cargar ejemplo</b>.</div></div>`;
+      <div style="font-family:var(--disp);font-size:18px;font-weight:600;color:var(--ink);margin-bottom:7px">${USER?'Este usuario no tiene exámenes aún':'Todavía no hay exámenes'}</div>
+      <div style="font-size:13.5px;line-height:1.65">Tocá <b style="color:var(--ink)">Examen</b> abajo para cargar tu primer final${USER?' — quedará guardado en tu usuario <b style=\"color:var(--ink)\">'+esc(USER)+'</b>':''}.</div></div>`;
     $('#routes').innerHTML='';
     return;
   }
@@ -424,45 +448,41 @@ function applyPick(){
   });
 }
 
-/* ---- rutas estilo metro: troncal vertical en su carril + ramal corto a cada estación ---- */
+/* ---- rutas estilo metro ---- */
 function stationOf(id){
   const el=document.querySelector(`.card[data-id="${id}"]`); if(!el)return null;
   const cr=$('#content').getBoundingClientRect(),r=el.getBoundingClientRect();
   return {x:r.left-cr.left, y:r.top-cr.top+r.height/2};
+}
+function metroPath(pts,laneX){
+  const R=9; let d='';
+  pts.forEach((pt,i)=>{
+    if(i===0){ d+=`M ${pt.x} ${pt.y} L ${laneX+R} ${pt.y} Q ${laneX} ${pt.y} ${laneX} ${pt.y+R}`; }
+    else{
+      d+=` L ${laneX} ${pt.y-R} Q ${laneX} ${pt.y} ${laneX+R} ${pt.y} L ${pt.x} ${pt.y}`;
+      if(i<pts.length-1){ d+=` M ${laneX+R} ${pt.y} Q ${laneX} ${pt.y} ${laneX} ${pt.y+R}`; }
+    }
+  });
+  return d;
 }
 function drawRoutes(){
   const svg=$('#routes'); if(!svg)return;
   const c=$('#content');
   svg.setAttribute('width',c.scrollWidth); svg.setAttribute('height',c.scrollHeight);
   let out='';
-  const R=9; /* radio de curva */
   state.paths.forEach((p,k)=>{
     const laneX=LANE0+k*GUT;
     const pts=p.examIds.map(stationOf).filter(Boolean).sort((a,b)=>a.y-b.y);
     if(!pts.length)return;
     const dim=iso&&iso!==p.id,op=dim?0.14:0.92;
-    let d='';
-    pts.forEach((pt,i)=>{
-      if(i===0){ d+=`M ${pt.x} ${pt.y} L ${laneX+R} ${pt.y} Q ${laneX} ${pt.y} ${laneX} ${pt.y+R}`; }
-      else{
-        d+=` L ${laneX} ${pt.y-R} Q ${laneX} ${pt.y} ${laneX+R} ${pt.y} L ${pt.x} ${pt.y}`;
-        if(i<pts.length-1){ d+=` M ${laneX+R} ${pt.y} Q ${laneX} ${pt.y} ${laneX} ${pt.y+R}`; }
-      }
-    });
-    out+=`<path d="${d}" fill="none" stroke="${p.color}" stroke-width="2.5" stroke-linecap="round" opacity="${op}"/>`;
+    out+=`<path d="${metroPath(pts,laneX)}" fill="none" stroke="${p.color}" stroke-width="2.5" stroke-linecap="round" opacity="${op}"/>`;
     pts.forEach(pt=>{out+=`<circle cx="${pt.x}" cy="${pt.y}" r="4.5" fill="var(--paper)" stroke="${p.color}" stroke-width="2.5" opacity="${dim?0.14:1}"/>`;});
   });
   if(build&&draft.length){
     const laneX=LANE0+state.paths.length*GUT;
     const pts=draft.map(stationOf).filter(Boolean).sort((a,b)=>a.y-b.y);
     if(pts.length){
-      let d='';
-      pts.forEach((pt,i)=>{
-        if(i===0){ d+=`M ${pt.x} ${pt.y} L ${laneX+R} ${pt.y} Q ${laneX} ${pt.y} ${laneX} ${pt.y+R}`; }
-        else{ d+=` L ${laneX} ${pt.y-R} Q ${laneX} ${pt.y} ${laneX+R} ${pt.y} L ${pt.x} ${pt.y}`;
-          if(i<pts.length-1)d+=` M ${laneX+R} ${pt.y} Q ${laneX} ${pt.y} ${laneX} ${pt.y+R}`; }
-      });
-      out+=`<path d="${d}" fill="none" stroke="#B0604F" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="2 7" opacity="0.9"/>`;
+      out+=`<path d="${metroPath(pts,laneX)}" fill="none" stroke="#B0604F" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="2 7" opacity="0.9"/>`;
       pts.forEach(pt=>{out+=`<circle cx="${pt.x}" cy="${pt.y}" r="4.5" fill="var(--paper)" stroke="#B0604F" stroke-width="2.5"/>`;});
     }
   }
@@ -615,15 +635,14 @@ function renderPlan(){
 function openOv(id){$('#'+id).classList.add('open');if(id==='pathsOv')renderPaths();if(id==='syncOv')fillSync();}
 function closeOv(id){$('#'+id).classList.remove('open');}
 
-/* ================= SYNC ================= */
-const sync={code:null,db:null,unsub:null,applying:false,on:false,last:0};
-function loadSyncPrefs(){try{
-  let c=localStorage.getItem('rf-code')||null;
-  if(c){c=c.trim().toLowerCase();localStorage.setItem('rf-code',c);}
-  sync.code=c;
-}catch(e){}}
+/* ================= USUARIO EN LA NUBE =================
+   Modelo: el código de usuario ES el dataset.
+   - Entrar: baja de la nube la configuración del usuario y la muestra (siempre).
+   - Cada cambio local se sube inmediatamente con la firma del dispositivo.
+   - El listener aplica todo cambio firmado por OTRO dispositivo. */
+const sync={db:null,unsub:null,on:false,last:0};
 function setDot(cls){const d=$('#sdot');if(d)d.className='dot'+(cls?(' '+cls):'');
-  $('#slbl').textContent=sync.on?(sync.code||'En la nube'):'Sincronizar';}
+  $('#slbl').textContent=USER?USER:'Ingresar';}
 function status(msg,cls){const s=$('#syncStatus');if(s){s.className='status'+(cls?(' '+cls):'');s.innerHTML=msg;}}
 function ensureDb(){
   if(sync.db)return sync.db;
@@ -631,57 +650,79 @@ function ensureDb(){
   try{
     if(!firebase.apps.length)firebase.initializeApp(FIREBASE_CONFIG);
     const db=firebase.firestore();
-    /* clave anti-lentitud: usamos directamente el canal compatible con
-       cualquier red (long-polling). Evita la espera de 30-60 s que produce
-       el canal rápido cuando la red lo bloquea. */
     try{db.settings({experimentalForceLongPolling:true,merge:true});}catch(e){}
     sync.db=db; return db;
   }catch(e){return null;}
 }
-function subscribe(){
-  const db=ensureDb();if(!db||!sync.code)return;
-  sync.unsub&&sync.unsub();setDot('wait');status('Conectando…');
-  sync.unsub=db.collection('planners').doc(sync.code).onSnapshot({includeMetadataChanges:false},doc=>{
-    try{
-      let cloudInfo='';
-      if(doc.exists&&doc.data()&&doc.data().json){
-        let remote=null; try{remote=JSON.parse(doc.data().json);}catch(e){}
-        const rn=remote&&remote.exams?remote.exams.length:0;
-        const rp=remote&&remote.paths?remote.paths.length:0;
-        cloudInfo='En la nube: <b>'+rn+'</b> exámenes, <b>'+rp+'</b> caminos.';
-        if(!doc.metadata.hasPendingWrites&&remote){
-          sync.applying=true;
-          state=remote;normalize();
-          try{localStorage.setItem(STORE,JSON.stringify(state));}catch(e){}
-          render();if($('#pathsOv').classList.contains('open'))renderPaths();
-          sync.applying=false;
-        }
+function applyRemote(json){
+  try{
+    const remote=JSON.parse(json);
+    state=remote;normalize();saveLocal();
+    render();
+    if($('#pathsOv').classList.contains('open'))renderPaths();
+    return true;
+  }catch(e){return false;}
+}
+function cloudCounts(json){
+  try{const r=JSON.parse(json);return {e:(r.exams||[]).length,p:(r.paths||[]).length};}catch(x){return {e:0,p:0};}
+}
+function login(code){
+  const db=ensureDb();
+  if(!db){status('No se cargó Firebase. Abrí la app desde tu URL de hosting, con internet.','err');setDot('err');return;}
+  USER=code;lsSet('rf-code',code);
+  setDot('wait');status('Buscando la configuración de <b>'+esc(code)+'</b>…');
+  const ref=db.collection('planners').doc(code);
+  /* 1) SIEMPRE traer primero lo que hay en la nube y mostrarlo */
+  ref.get().then(doc=>{
+    if(doc.exists&&doc.data()&&doc.data().json){
+      applyRemote(doc.data().json);
+      const cc=cloudCounts(doc.data().json);
+      sync.on=true;sync.last=Date.now();setDot('on');
+      status('Entraste como <b>'+esc(code)+'</b> ✓<br>Cargado de la nube: <b>'+cc.e+'</b> exámenes, <b>'+cc.p+'</b> caminos.','on');
+    }else{
+      /* usuario nuevo en la nube */
+      const local=loadLocal();state=local;normalize();
+      if(state.exams.length||state.paths.length){
+        pushRemote(true);
+        status('Usuario nuevo <b>'+esc(code)+'</b>: subí los datos de este dispositivo a la nube ('+state.exams.length+' exámenes).','on');
       }else{
-        /* el documento no existe todavía: solo lo creamos si este
-           dispositivo tiene datos; un dispositivo vacío jamás pisa nada */
-        if(state.exams.length||state.paths.length){ pushRemote(true); cloudInfo='Creando el documento con tus datos…'; }
-        else{ cloudInfo='Código nuevo: la nube está vacía. Cargá un examen y aparecerá en todos lados.'; }
+        state={exams:[],paths:[]};saveLocal();
+        status('Usuario nuevo <b>'+esc(code)+'</b>: sin datos aún. Cargá un examen y quedará guardado en tu usuario.','on');
       }
       sync.on=true;sync.last=Date.now();setDot('on');
-      status('Sincronizado ✓ como <b>'+esc(sync.code)+'</b> · '+new Date().toLocaleTimeString()+'.<br>'+cloudInfo,'on');
-    }catch(e){}
-  },err=>{sync.on=false;setDot('err');const c=err&&err.code?err.code:'';
-    status('No pude sincronizar'+(c?(' ('+esc(c)+')'):'')+'. '+(c==='permission-denied'?'Faltan las reglas de Firestore (allow read, write: if true;).':'Revisá que Firestore esté creado.'),'err');});
+      render();
+    }
+    /* 2) escuchar cambios de otros dispositivos */
+    sync.unsub&&sync.unsub();
+    sync.unsub=ref.onSnapshot(snap=>{
+      const d=snap.data();
+      if(!d||!d.json)return;
+      sync.last=Date.now();
+      if(d.by===DEVICE_ID)return;      /* es nuestro propio eco */
+      applyRemote(d.json);
+      const cc=cloudCounts(d.json);
+      setDot('on');
+      status('Actualizado desde otro dispositivo ✓ '+new Date().toLocaleTimeString()+'<br>Ahora: <b>'+cc.e+'</b> exámenes, <b>'+cc.p+'</b> caminos.','on');
+    },err=>{sync.on=false;setDot('err');const c=err&&err.code?err.code:'';
+      status('Se cortó la escucha'+(c?(' ('+esc(c)+')'):'')+'. Tocá Entrar de nuevo.','err');});
+  }).catch(err=>{
+    sync.on=false;setDot('err');const c=err&&err.code?err.code:'';
+    status('No pude leer la nube'+(c?(' ('+esc(c)+')'):'')+'. '+(c==='permission-denied'?'Revisá las reglas de Firestore (allow read, write: if true;).':'Revisá tu conexión.'),'err');
+  });
 }
 function pushRemote(force){
-  const db=ensureDb();if(!db||!sync.code)return;
-  if(sync.applying&&!force)return;
-  db.collection('planners').doc(sync.code).set({json:JSON.stringify(state),ts:Date.now()})
-    .then(()=>{sync.last=Date.now();})
-    .catch(err=>{const c=err&&err.code?err.code:'';setDot('err');status('No pude guardar en la nube'+(c?(' ('+esc(c)+')'):'')+'.','err');});
+  const db=ensureDb();if(!db||!USER)return;
+  db.collection('planners').doc(USER).set({json:JSON.stringify(state),ts:Date.now(),by:DEVICE_ID})
+    .then(()=>{sync.last=Date.now();setDot('on');})
+    .catch(err=>{setDot('err');const c=err&&err.code?err.code:'';
+      status('No pude guardar en la nube'+(c?(' ('+esc(c)+')'):'')+'.','err');});
 }
 function enterCode(){
-  let code=($('#syncCode').value||'').trim().toLowerCase();
+  const code=($('#syncCode').value||'').trim().toLowerCase();
   if(!code){status('Escribí un código.','err');return;}
   if(!CLOUD_READY){$('#setupBox').style.display='block';status('La nube no está configurada en este archivo (ver abajo).','err');return;}
-  if(typeof firebase==='undefined'){status('No se cargó Firebase. Abrí la app desde tu URL de hosting (no con doble clic local) y con internet.','err');return;}
-  sync.code=code;try{localStorage.setItem('rf-code',code);}catch(e){}
-  $('#syncCode').value=code;subscribe();
+  $('#syncCode').value=code;
+  login(code);
 }
 function testConn(){
   if(!CLOUD_READY){$('#setupBox').style.display='block';status('Primero configurá la nube (ver abajo).','err');return;}
@@ -689,17 +730,24 @@ function testConn(){
   status('Probando…');
   const t0=Date.now();
   db.collection('planners').doc('__test__').set({ts:Date.now()})
-    .then(()=>status('Conexión OK ✓ en '+((Date.now()-t0)/1000).toFixed(1)+' s. Escribí tu código y tocá Entrar.','on'))
+    .then(()=>db.collection('planners').doc('__test__').get())
+    .then(()=>status('Conexión OK ✓ ida y vuelta en '+((Date.now()-t0)/1000).toFixed(1)+' s.','on'))
     .catch(err=>{const c=err&&err.code?err.code:'';status('Falló la prueba'+(c?(' ('+esc(c)+')'):'')+'. '+(c==='permission-denied'?'Revisá las reglas de Firestore.':'Revisá la configuración.'),'err');});
 }
-function disconnect(){sync.unsub&&sync.unsub();sync.unsub=null;sync.on=false;sync.code=null;
-  try{localStorage.removeItem('rf-code');}catch(e){}setDot('');status('Saliste. Los datos quedan solo en este dispositivo.','');}
+function logout(){
+  sync.unsub&&sync.unsub();sync.unsub=null;sync.on=false;
+  USER=null;lsDel('rf-code');
+  state=loadLocal();normalize();
+  setDot('');render();
+  status('Saliste. Estás viendo los datos locales de este dispositivo (sin usuario).','');
+}
 function fillSync(){
-  $('#syncCode').value=sync.code||'';$('#ioBox').value='';
+  $('#syncCode').value=USER||'';$('#ioBox').value='';
   $('#setupBox').style.display=CLOUD_READY?'none':'block';
-  if(sync.on)status('Sincronizado ✓ como <b>'+esc(sync.code)+'</b>. Última actualización: '+new Date(sync.last).toLocaleTimeString()+'.','on');
-  else if(!CLOUD_READY)status('La nube no está configurada en este archivo. Ver pasos abajo. Igual podés usar copiar/pegar.','');
-  else status('Escribí tu código y tocá <b>Entrar</b>. Con el mismo código en otro dispositivo, todo se sincroniza solo.','');
+  $('#verLbl').textContent='App versión '+APP_VERSION+' · dispositivo '+DEVICE_ID;
+  if(sync.on&&USER)status('Conectado como <b>'+esc(USER)+'</b>. Última actividad: '+new Date(sync.last).toLocaleTimeString()+'.<br>En pantalla: <b>'+state.exams.length+'</b> exámenes, <b>'+state.paths.length+'</b> caminos.','on');
+  else if(!CLOUD_READY)status('La nube no está configurada en este archivo. Ver pasos abajo.','');
+  else status('Escribí tu código de usuario y tocá <b>Entrar</b>. La app va a buscar tu configuración a la nube y mostrarla acá.','');
 }
 
 /* ---- misc ---- */
@@ -716,7 +764,7 @@ function loadDemo(){
   state.paths=[];iso=null;expanded.clear();save();closeOv('pathsOv');render();
 }
 function wipe(){if(!state.exams.length&&!state.paths.length)return;
-  if(confirm('¿Vaciar todo? Se borran exámenes y caminos.')){state={exams:[],paths:[]};build=false;draft=[];iso=null;expanded.clear();updateBar();save();closeOv('pathsOv');render();}}
+  if(confirm('¿Vaciar todo? Se borran exámenes y caminos'+(USER?' del usuario '+USER:'')+'.')){state={exams:[],paths:[]};build=false;draft=[];iso=null;expanded.clear();updateBar();save();closeOv('pathsOv');render();}}
 
 /* ---- events ---- */
 $('#addBtn').onclick=()=>openExam();
@@ -729,18 +777,20 @@ $('#clearBtn').onclick=wipe;
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeOv(b.dataset.close));
 $('#syncGo').onclick=enterCode;
 $('#syncTest').onclick=testConn;
-$('#syncOff').onclick=disconnect;
+$('#syncOff').onclick=logout;
 $('#syncCode').onkeydown=e=>{if(e.key==='Enter')enterCode();};
 $('#ioExport').onclick=()=>{const t=$('#ioBox');t.value=JSON.stringify(state);t.select();try{document.execCommand('copy');}catch(e){}status('Datos copiados. Pegalos en el otro dispositivo y tocá “Cargar pegados”.','');};
-$('#ioImport').onclick=()=>{try{const d=JSON.parse($('#ioBox').value.trim());if(!d||!d.exams)throw 0;state=d;normalize();save();render();status('Datos cargados en este dispositivo.','on');}catch(e){status('No pude leer esos datos.','err');}};
+$('#ioImport').onclick=()=>{try{const d=JSON.parse($('#ioBox').value.trim());if(!d||!d.exams)throw 0;state=d;normalize();save();render();status('Datos cargados.','on');}catch(e){status('No pude leer esos datos.','err');}};
 window.addEventListener('resize',()=>requestAnimationFrame(drawRoutes));
 if(window.ResizeObserver)new ResizeObserver(()=>requestAnimationFrame(drawRoutes)).observe($('#content'));
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>requestAnimationFrame(drawRoutes));
 
-loadSyncPrefs();
-updateBar();render();
-/* conexión inmediata: no espera al evento load */
-if(CLOUD_READY&&sync.code){ subscribe(); }
+updateBar();setDot('');render();
+/* si ya hay usuario guardado, entrar directo; si no, pedir el código */
+if(CLOUD_READY){
+  if(USER)login(USER);
+  else openOv('syncOv');
+}
 </script>
 </body>
 </html>
