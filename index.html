@@ -64,8 +64,7 @@
 
   .card{position:relative;border:1px solid;border-radius:var(--r);padding:12px 14px;
     box-shadow:var(--sh);cursor:pointer;transition:transform .06s,box-shadow .2s,opacity .2s}
-  .card .stn{position:absolute;left:-1px;top:50%;transform:translate(-50%,-50%);
-    width:11px;height:11px;border-radius:50%;background:var(--sc);border:2.5px solid var(--paper);z-index:3}
+  .card .stn{display:none}
   .card .day{font-size:10.5px;color:var(--muted);font-weight:600;letter-spacing:.02em}
   .card .name{font-family:var(--disp);font-size:16.5px;font-weight:600;line-height:1.15;
     margin:3px 0 4px;word-break:break-word}
@@ -370,7 +369,7 @@
 
 <script>
 "use strict";
-const APP_VERSION='10';
+const APP_VERSION='13';
 
 /* ======================================================================
    CONFIGURACIÓN DE LA NUBE — completar UNA SOLA VEZ (ya está tu proyecto).
@@ -393,8 +392,11 @@ const $=s=>document.querySelector(s);
 const MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const DIA=['dom','lun','mar','mié','jue','vie','sáb'];
 const SUBJECT_COLORS=['#A8C3A0','#9FB8D3','#D9A79A','#DBC69A','#B8A8CC','#96C2BC','#D3A0B4','#B5B88A','#C9AC91','#A3B6BC'];
-const PATH_COLORS=['#8A5D52','#5B7183','#67805F','#96793F','#75688A','#54807B','#8A5F70','#6E6A55'];
-const GUT=16, LANE0=10;
+/* Reparto por lado: izquierda usa índices 0,2,4,6 y derecha 1,3,5,7.
+   Secuencia elegida para que dentro de cada lado los tonos contrasten:
+   izq: teja(0) oliva(2) ocre(4) vino(6) · der: azul(1) ciruela(3) verdemar(5) pizarra(7) */
+const PATH_COLORS=['#B0604F','#3E6C8E','#7E9153','#8E5AA6','#C79A3B','#3E8E87','#9C4F6B','#55617A'];
+const GUT=16, LANE0=12;
 
 /* ---------- identidad del dispositivo y del usuario ---------- */
 function lsGet(k){try{return localStorage.getItem(k);}catch(e){return null;}}
@@ -511,14 +513,14 @@ function renderInner(){
   document.body.classList.toggle('build',build);
   const wrap=$('#weeks');
   if(!boardItems().length){
-    wrap.style.marginLeft='0px';
+    wrap.style.marginLeft='0px';wrap.style.marginRight='0px';
     wrap.innerHTML=`<div style="margin:auto;max-width:340px;text-align:center;color:var(--muted);padding:40px 8px">
       <div style="font-family:var(--disp);font-size:18px;font-weight:600;color:var(--ink);margin-bottom:7px">${onlyExams&&state.events.length?'No hay exámenes':'Todavía no hay nada cargado'}</div>
       <div style="font-size:13.5px;line-height:1.65">Tocá <b style="color:var(--ink)">Evento</b> abajo para cargar un examen o un evento${USER?' — se guarda en tu usuario <b style=\"color:var(--ink)\">'+esc(USER)+'</b>':''}.</div></div>`;
     $('#routes').innerHTML='';
     return;
   }
-  wrap.style.marginLeft=gutterWidth()+'px';
+  const g=gutters(); wrap.style.marginLeft=g.ml+'px'; wrap.style.marginRight=g.mr+'px';
   const ws=weeks();
   wrap.innerHTML=ws.map((w,i)=>`<div class="week ${w.items.length?'':'empty'} ${i%2?'alt':''}">
     <div class="week-h"><span class="wk">Semana ${i+1}</span><span class="rng">${fmtShort(w.start)} – ${fmtShort(w.end)}</span></div>
@@ -560,44 +562,89 @@ function applyPick(){
   });
 }
 
-/* ---- rutas estilo metro ---- */
-function stationOf(id){
+/* ---- rutas: carriles izquierda/derecha + puertos múltiples por ficha ---- */
+function pathSide(k){return k%2===0?'L':'R';}   /* 1º izq, 2º der, 3º izq… */
+function pathLane(k){return Math.floor(k/2);}    /* 0,0,1,1,2,2… dentro del lado */
+/* color por posición DENTRO del lado: así los vecinos reales (mismo lado) contrastan.
+   izquierda usa colores pares del arreglo, derecha los impares → nunca se repiten cerca */
+function autoColor(k){
+  const side=pathSide(k), lane=pathLane(k);
+  const idx = side==='L' ? (lane*2)%PATH_COLORS.length : (lane*2+1)%PATH_COLORS.length;
+  return PATH_COLORS[idx];
+}
+function laneCounts(){
+  let L=0,R=0; const n=state.paths.length+(build&&draft.length?1:0);
+  for(let k=0;k<n;k++){ if(pathSide(k)==='L')L++; else R++; }
+  return {L,R};
+}
+function gutters(){const {L,R}=laneCounts();return {ml:L?LANE0+L*GUT+8:0, mr:R?LANE0+R*GUT+8:0};}
+function cardRect(id){
   const el=document.querySelector(`.card[data-id="${id}"]`); if(!el)return null;
   const cr=$('#content').getBoundingClientRect(),r=el.getBoundingClientRect();
-  return {x:r.left-cr.left, y:r.top-cr.top+r.height/2};
+  return {left:r.left-cr.left,right:r.right-cr.left,top:r.top-cr.top,h:r.height};
 }
-function metroPath(pts,laneX){
+function elbow(pts,laneX){
   const R=9; let d='';
   pts.forEach((pt,i)=>{
-    if(i===0){ d+=`M ${pt.x} ${pt.y} L ${laneX+R} ${pt.y} Q ${laneX} ${pt.y} ${laneX} ${pt.y+R}`; }
+    const dir=pt.x>=laneX?1:-1, app=laneX+dir*R;
+    if(i===0){ d+=`M ${pt.x} ${pt.y} L ${app} ${pt.y} Q ${laneX} ${pt.y} ${laneX} ${pt.y+R}`; }
     else{
-      d+=` L ${laneX} ${pt.y-R} Q ${laneX} ${pt.y} ${laneX+R} ${pt.y} L ${pt.x} ${pt.y}`;
-      if(i<pts.length-1){ d+=` M ${laneX+R} ${pt.y} Q ${laneX} ${pt.y} ${laneX} ${pt.y+R}`; }
+      d+=` L ${laneX} ${pt.y-R} Q ${laneX} ${pt.y} ${app} ${pt.y} L ${pt.x} ${pt.y}`;
+      if(i<pts.length-1){ d+=` M ${app} ${pt.y} Q ${laneX} ${pt.y} ${laneX} ${pt.y+R}`; }
     }
   });
   return d;
 }
 function drawRoutes(){
   const svg=$('#routes'); if(!svg)return;
-  const c=$('#content');
-  svg.setAttribute('width',c.scrollWidth); svg.setAttribute('height',c.scrollHeight);
-  let out='';
-  state.paths.forEach((p,k)=>{
-    const laneX=LANE0+k*GUT;
-    const pts=p.examIds.map(stationOf).filter(Boolean).sort((a,b)=>a.y-b.y);
-    if(!pts.length)return;
-    const dim=iso&&iso!==p.id,op=dim?0.14:0.92;
-    out+=`<path d="${metroPath(pts,laneX)}" fill="none" stroke="${p.color}" stroke-width="2.5" stroke-linecap="round" opacity="${op}"/>`;
-    pts.forEach(pt=>{out+=`<circle cx="${pt.x}" cy="${pt.y}" r="4.5" fill="var(--paper)" stroke="${p.color}" stroke-width="2.5" opacity="${dim?0.14:1}"/>`;});
+  const c=$('#content'); const W=c.scrollWidth;
+  svg.setAttribute('width',W); svg.setAttribute('height',c.scrollHeight);
+  const {ml,mr}=gutters();
+  /* lista de "trazos" a dibujar: cada camino + el borrador */
+  const strokes=[];
+  state.paths.forEach((p,k)=>strokes.push({k,ids:pathExams(p).map(e=>e.id),color:autoColor(k),dim:iso&&iso!==p.id,dash:false}));
+  if(build&&draft.length)strokes.push({k:state.paths.length,ids:draft.slice(),color:autoColor(state.paths.length),dim:false,dash:true});
+
+  /* 1) rects de cada ficha visible */
+  const rects={}; document.querySelectorAll('.card').forEach(el=>{rects[el.dataset.id]=cardRect(el.dataset.id);});
+
+  /* 2) recorrido vertical (span) de cada trazo, para anidar y ordenar puertos */
+  const spanY={}, centerY={};
+  strokes.forEach(s=>{
+    const ys=s.ids.map(id=>rects[id]?rects[id].top+rects[id].h/2:null).filter(v=>v!=null);
+    if(ys.length){const mn=Math.min(...ys),mx=Math.max(...ys);spanY[s.k]=mx-mn;centerY[s.k]=(mn+mx)/2;}
+    else{spanY[s.k]=0;centerY[s.k]=0;}
   });
-  if(build&&draft.length){
-    const laneX=LANE0+state.paths.length*GUT;
-    const pts=draft.map(stationOf).filter(Boolean).sort((a,b)=>a.y-b.y);
-    if(pts.length){
-      out+=`<path d="${metroPath(pts,laneX)}" fill="none" stroke="#B0604F" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="2 7" opacity="0.9"/>`;
-      pts.forEach(pt=>{out+=`<circle cx="${pt.x}" cy="${pt.y}" r="4.5" fill="var(--paper)" stroke="#B0604F" stroke-width="2.5"/>`;});
-    }
-  }
+  /* carril dentro de cada lado: el de mayor recorrido va más afuera (envuelve) */
+  const sideLists={L:[],R:[]}; strokes.forEach(s=>sideLists[pathSide(s.k)].push(s.k));
+  const laneOf={};
+  ['L','R'].forEach(side=>{ sideLists[side].slice().sort((a,b)=>(spanY[a]-spanY[b])||(a-b)).forEach((k,i)=>laneOf[k]=i); });
+
+  /* 3) puertos por ficha y lado: el camino de mayor recorrido usa el puerto superior */
+  const byCardSide={};
+  strokes.forEach(s=>{const side=pathSide(s.k);s.ids.forEach(id=>{if(!rects[id])return;
+    (byCardSide[id]=byCardSide[id]||{L:[],R:[]})[side].push(s.k);});});
+  const portOf={};
+  Object.keys(byCardSide).forEach(id=>{
+    const r=rects[id];
+    ['L','R'].forEach(side=>{
+      const list=byCardSide[id][side].slice().sort((a,b)=>(laneOf[a]-laneOf[b])||(a-b));
+      const n=list.length;
+      list.forEach((k,idx)=>{ const y=r.top + r.h*(idx+1)/(n+1); const x=side==='L'?r.left:r.right; portOf[k+':'+id]={x,y}; });
+    });
+  });
+
+  /* 4) dibujar cada trazo por su carril */
+  let out='';
+  strokes.forEach(s=>{
+    const side=pathSide(s.k), lane=laneOf[s.k]||0;
+    const laneX = side==='L' ? (ml-LANE0-lane*GUT) : (W-mr+LANE0+lane*GUT);
+    const pts=s.ids.map(id=>portOf[s.k+':'+id]).filter(Boolean).sort((a,b)=>a.y-b.y);
+    if(!pts.length)return;
+    const op=s.dim?0.12:0.95;
+    out+=`<path d="${elbow(pts,laneX)}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linecap="round" ${s.dash?'stroke-dasharray="2 7"':''} opacity="${op}"/>`;
+    pts.forEach(pt=>{out+=`<circle cx="${pt.x}" cy="${pt.y}" r="4.5" fill="var(--paper)" stroke="${s.color}" stroke-width="2.5" opacity="${s.dim?0.12:1}"/>`;});
+  });
   svg.innerHTML=out;
 }
 
@@ -872,14 +919,14 @@ function renderPaths(){
   const box=$('#pathsBody');
   if(!state.paths.length){box.innerHTML=`<div class="empty-note">Sin caminos.<br>Cerrá esto, tocá <b>Camino</b> abajo y elegí un ítem por semana para trazar tu ruta.</div>`;renderViewToggle();return;}
   let best=null,bp=Infinity;state.paths.forEach(p=>{const s=pathStats(p);if(pathExams(p).length>=2&&s.peak<bp&&s.peak<Infinity){bp=s.peak;best=p.id;}});
-  box.innerHTML=state.paths.map(p=>{
+  box.innerHTML=state.paths.map((p,pk)=>{
     const ex=pathExams(p),s=pathStats(p),open=expanded.has(p.id);
     const names=ex.length?ex.map(e=>`<b>${esc(itemIsEvent(e.id)?e.name:displayName(e))}</b>`).join(' → '):'Vacío';
     let legs='';
     if(open)legs=`<div class="legs">${legInfo(p).map(l=>`<div class="leg"><div class="lh"><span class="ldot" style="background:${darken(l.e.color,0.55)}"></span><span class="lname">${esc(l.ev?l.e.name:displayName(l.e))}</span><span class="ldate">${fmtDay(l.e.date)}</span></div>
       <div class="lmeta">${l.ev?('evento · '+esc(eventTypeLabel(l.e.tipo))+' · <b>'+l.days+'</b> días antes'):('<b>'+l.days+'</b> días de estudio · dif <b>'+l.dif+'</b> · prep <b>'+l.prep+'%</b> · esfuerzo <b>'+l.eff+'</b><span class="tag '+l.pr.cls+'">'+l.pr.lbl+'</span>')}</div></div>`).join('')}</div>`;
     return `<div class="path ${iso===p.id?'iso':''}" data-id="${p.id}">
-      <div class="path-top"><span class="swatch" style="background:${p.color}"></span><input class="pname" value="${esc(p.name)}" data-id="${p.id}">${p.id===best?'<span class="badge">+ llevadero</span>':''}</div>
+      <div class="path-top"><span class="swatch" style="background:${autoColor(pk)}"></span><input class="pname" value="${esc(p.name)}" data-id="${p.id}">${p.id===best?'<span class="badge">+ llevadero</span>':''}</div>
       <div class="stops">${names}</div>
       <div class="stats"><div class="stat"><div class="k">Duración</div><div class="v">${s.span}</div></div><div class="stat"><div class="k">Descanso mín.</div><div class="v">${s.gap}</div></div><div class="stat"><div class="k">Dif. media</div><div class="v">${s.dif}</div></div></div>
       <div class="path-actions"><button class="btn sm" data-a="exp" data-id="${p.id}">${open?'Ocultar':'Desglose'}</button><button class="btn sm" data-a="plan" data-id="${p.id}">Plan</button><button class="btn sm" data-a="iso" data-id="${p.id}">${iso===p.id?'Ver todos':'Resaltar'}</button><button class="btn sm" data-a="del" data-id="${p.id}">✕</button></div>${legs}</div>`;
