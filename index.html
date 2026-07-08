@@ -199,6 +199,31 @@
   details summary{cursor:pointer;font-size:13px;font-weight:600;padding:4px 0}
   code{background:#E7E5DE;padding:1px 6px;border-radius:6px;font-size:.9em}
   .ver{font-size:10px;color:#B9B6AD;text-align:center;padding:8px 0 2px;letter-spacing:.08em}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border-radius:99px;
+    border:1px solid var(--line-2);background:var(--surface);font-size:13px;font-weight:600;color:var(--ink)}
+  .chip .cdot{width:11px;height:11px;border-radius:50%;flex:0 0 auto}
+  .chip.ghost{color:var(--muted);border-style:dashed}
+  .chip:active{transform:translateY(1px)}
+  .subjrow{display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--r-s);padding:11px 13px;margin-bottom:9px}
+  .subjrow .cdot{width:16px;height:16px;border-radius:6px;flex:0 0 auto}
+  .subjrow .sinfo{flex:1;min-width:0}
+  .subjrow .sname{font-family:var(--disp);font-size:15px;font-weight:600}
+  .subjrow .ssub{font-size:11px;color:var(--muted);font-weight:600}
+  .repbox{border:1px solid var(--line-2);border-radius:var(--r-s);padding:12px 13px;margin-top:6px;background:var(--surface)}
+  .repchk{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600}
+  .repchk input{width:18px;height:18px;accent-color:var(--accent)}
+  .reprow{display:flex;align-items:center;justify-content:space-between;margin-top:12px;font-size:13.5px}
+  .stepper{display:flex;align-items:center;gap:0;border:1px solid var(--line-2);border-radius:10px;overflow:hidden}
+  .stepper button{width:38px;height:36px;font-size:18px;font-weight:700;background:var(--surface);color:var(--ink)}
+  .stepper button:active{background:var(--line)}
+  .stepper b{min-width:40px;text-align:center;font-variant-numeric:tabular-nums;border-left:1px solid var(--line-2);border-right:1px solid var(--line-2);line-height:36px}
+  .reprow2{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .reprow2 .repnum{font-size:12px;font-weight:700;color:var(--muted);width:78px;flex:0 0 auto}
+  .reprow2 input[type=date]{flex:1;padding:11px 12px;border:1px solid var(--line-2);border-radius:11px;font-size:15px;background:var(--surface);color:var(--ink)}
+  .reprow2 .repdel{color:var(--muted);padding:8px 10px;border-radius:9px}
+  .reprow2 .repdel:active{background:var(--line)}
 </style>
 </head>
 <body>
@@ -234,8 +259,21 @@
   <div class="ov-foot"><button class="bb" data-close="examOv">Cancelar</button><button class="bb primary" id="examSave">Guardar</button></div>
 </div></div>
 
-<!-- paths overlay -->
-<div class="ov" id="pathsOv"><div class="ov-card">
+<!-- repeat overlay -->
+<div class="ov" id="repeatOv"><div class="ov-card">
+  <div class="ov-h"><button class="ov-back" data-close="repeatOv">‹ Volver</button><h2 id="repTitle">Repetir llamado</h2></div>
+  <div class="ov-body" id="repBody"></div>
+  <div class="ov-foot"><button class="bb" data-close="repeatOv">Ahora no</button><button class="bb primary" id="repConfirm">Crear llamados</button></div>
+</div></div>
+
+<!-- subjects overlay -->
+<div class="ov" id="subjOv"><div class="ov-card">
+  <div class="ov-h"><button class="ov-back" data-close="subjOv">‹ Volver</button><h2>Materias</h2></div>
+  <div class="ov-body" id="subjBody"></div>
+  <div class="ov-foot"><button class="bb primary" id="subjAdd">+ Nueva materia</button></div>
+</div></div>
+
+<!-- paths overlay --><div class="ov" id="pathsOv"><div class="ov-card">
   <div class="ov-h"><button class="ov-back" data-close="pathsOv">‹ Volver</button><h2>Caminos</h2></div>
   <div class="ov-body" id="pathsBody"></div>
   <div class="ov-foot"><button class="bb" id="demoBtn">Cargar ejemplo</button><button class="bb" id="clearBtn">Vaciar todo</button></div>
@@ -288,7 +326,7 @@
 
 <script>
 "use strict";
-const APP_VERSION='7';
+const APP_VERSION='8';
 
 /* ======================================================================
    CONFIGURACIÓN DE LA NUBE — completar UNA SOLA VEZ (ya está tu proyecto).
@@ -355,6 +393,11 @@ function normalize(){
     checklist:(e.checklist||[]).map(c=>({id:c.id||uid(),text:c.text,done:!!c.done}))}));
   state.paths=(state.paths||[]).map((p,i)=>({id:p.id||uid(),name:p.name||'Camino',
     color:PATH_COLORS.includes(p.color)?p.color:PATH_COLORS[i%PATH_COLORS.length],examIds:p.examIds||[]}));
+  state.subjects=(state.subjects||[]).filter(s=>s&&s.name).map((s,i)=>({id:s.id||uid(),name:s.name,
+    color:SUBJECT_COLORS.includes(s.color)?s.color:SUBJECT_COLORS[i%SUBJECT_COLORS.length],
+    formato:s.formato||'teorico-practico',modalidad:s.modalidad||'escrito',
+    difTeoria:num(s.difTeoria,50),difPractica:num(s.difPractica,50),contenido:num(s.contenido,50),
+    temas:Array.isArray(s.temas)?s.temas:[]}));
 }
 
 /* dates */
@@ -527,7 +570,9 @@ function renderExam(){
   const seg=(n,v,o)=>`<div class="seg">${o.map(([val,l])=>`<label><input type="radio" name="${n}" value="${val}" ${val===v?'checked':''}><span>${l}</span></label>`).join('')}</div>`;
   const sl=(k,l,v)=>`<div class="slider" data-k="${k}"><div class="sl-top"><span>${l}</span><b data-v>${v}${k==='preparado'?'%':''}</b></div><input type="range" min="0" max="100" step="5" value="${v}"></div>`;
   const ck=form.checklist.map(c=>`<div class="ckrow ${c.done?'done':''}" data-id="${c.id}"><input type="checkbox" ${c.done?'checked':''}><span class="t">${esc(c.text)}</span><button class="x">✕</button></div>`).join('');
+  const subjChips=(state.subjects&&state.subjects.length)?`<div class="field"><label>Materias guardadas</label><div class="chips">${state.subjects.map(s=>`<button class="chip" data-sid="${s.id}"><span class="cdot" style="background:${s.color}"></span>${esc(s.name)}</button>`).join('')}<button class="chip ghost" id="goSubjects">Gestionar…</button></div></div>`:`<div class="field"><label>Materias</label><button class="chip ghost" id="goSubjects">Crear materias reutilizables…</button></div>`;
   $('#examBody').innerHTML=`
+    ${subjChips}
     <div class="field"><label>Materia</label><input id="exName" type="text" placeholder="Ej: Análisis II" value="${esc(form.name)}"></div>
     <div class="field"><label>Fecha</label><input id="exDate" type="date" value="${form.date}"></div>
     <div class="field"><label>Color</label><div class="swatches" id="sw">${sw}</div></div>
@@ -537,7 +582,31 @@ function renderExam(){
     <div class="field"><label>Preparación</label>${sl('preparado','¿Qué tan listo estás?',form.preparado)}</div>
     <div class="field"><label>Temas / checklist</label><div class="cklist" id="cklist">${ck}</div>
       <div class="ckadd"><input id="ckIn" type="text" placeholder="Agregar tema y Enter…"><button class="btn sm" id="ckAdd">Añadir</button></div></div>
-    ${state.exams.some(e=>e.id===form.id)?'<button class="btn" id="exDelete" style="width:100%;color:var(--bad);border-color:#E0C6BE;margin-top:4px">Eliminar examen</button>':''}`;
+    ${state.exams.some(e=>e.id===form.id)?'<button class="btn" id="exDelete" style="width:100%;color:var(--bad);border-color:#E0C6BE;margin-top:4px">Eliminar examen</button>':''}
+    ${state.exams.some(e=>e.id===form.id)?'':`<div class="repbox">
+      <label class="repchk"><input type="checkbox" id="repOn"> Repetir este llamado las próximas semanas</label>
+      <div id="repCfg" style="display:none">
+        <div class="reprow"><span>Cantidad de llamados más</span><div class="stepper"><button data-s="rep" data-d="-1">−</button><b id="repN">3</b><button data-s="rep" data-d="1">+</button></div></div>
+        <div class="reprow"><span>Cada cuántos días</span><div class="stepper"><button data-s="gap" data-d="-1">−</button><b id="repGap">7</b><button data-s="gap" data-d="1">+</button></div></div>
+        <div class="muted-note">Se crearán copias con la misma materia, color y dificultad. Vas a poder ajustar cada fecha antes de confirmar (por si algún llamado no cae justo a 7 días).</div>
+      </div></div>`}`;
+  const rep=$('#repOn');
+  if(rep){
+    rep.onchange=()=>{$('#repCfg').style.display=rep.checked?'block':'none';};
+    $('#examBody').querySelectorAll('.stepper button').forEach(b=>b.onclick=()=>{
+      const s=b.dataset.s,d=+b.dataset.d;
+      if(s==='rep'){repState.count=Math.max(1,Math.min(12,repState.count+d));$('#repN').textContent=repState.count;}
+      else{repState.gap=Math.max(1,Math.min(21,repState.gap+d));$('#repGap').textContent=repState.gap;}
+    });
+  }
+  const gs=$('#goSubjects'); if(gs)gs.onclick=()=>openOv('subjOv');
+  $('#examBody').querySelectorAll('.chip[data-sid]').forEach(b=>b.onclick=()=>{
+    const s=state.subjects.find(x=>x.id===b.dataset.sid); if(!s)return;
+    form.name=s.name;form.color=s.color;form.formato=s.formato;form.modalidad=s.modalidad;
+    form.difTeoria=s.difTeoria;form.difPractica=s.difPractica;form.contenido=s.contenido;
+    if((!form.checklist||!form.checklist.length)&&s.temas&&s.temas.length)form.checklist=s.temas.map(t=>({id:uid(),text:t,done:false}));
+    renderExam();
+  });
   const delBtn=$('#exDelete'); if(delBtn)delBtn.onclick=()=>{ if(confirm('¿Eliminar este examen?'))delExamFromForm(); };
   $('#exName').oninput=e=>form.name=e.target.value;
   $('#exDate').onchange=e=>form.date=e.target.value;
@@ -556,15 +625,98 @@ function saveExam(){
   if(!form.name.trim()){$('#exName').focus();return;}
   if(!form.date){$('#exDate').focus();return;}
   form.name=form.name.trim();
+  const isNew=!state.exams.some(e=>e.id===form.id);
   const i=state.exams.findIndex(e=>e.id===form.id);
   if(i>=0)state.exams[i]=form;else state.exams.push(form);
+  const wantRep=isNew && $('#repOn') && $('#repOn').checked;
   save();closeOv('examOv');render();
+  if(wantRep) openRepeat(form, repState.count, repState.gap);
+}
+/* ---- repetir llamado ---- */
+const repState={count:3,gap:7};
+let repDrafts=[];
+function openRepeat(base,count,gap){
+  repDrafts=[];
+  let d=parse(base.date);
+  for(let i=0;i<count;i++){ d=addDays(d,gap); repDrafts.push({date:ymd(d)}); }
+  $('#repTitle').textContent='Repetir: '+base.name;
+  renderRepeat(base);
+  openOv('repeatOv');
+}
+function renderRepeat(base){
+  $('#repBody').innerHTML=`
+    <div class="muted-note" style="margin-bottom:14px">Revisá o corregí las fechas de los próximos llamados de <b>${esc(base.name)}</b>. Podés quitar el que no quieras.</div>
+    ${repDrafts.map((r,i)=>`<div class="reprow2" data-i="${i}">
+      <span class="repnum">Llamado +${i+1}</span>
+      <input type="date" value="${r.date}" data-i="${i}">
+      <button class="repdel" data-i="${i}" title="Quitar">✕</button></div>`).join('')}
+    ${repDrafts.length===0?'<div class="empty-note">No quedan llamados para crear.</div>':''}`;
+  $('#repBody').querySelectorAll('input[type=date]').forEach(inp=>inp.onchange=()=>{repDrafts[+inp.dataset.i].date=inp.value;});
+  $('#repBody').querySelectorAll('.repdel').forEach(b=>b.onclick=()=>{repDrafts.splice(+b.dataset.i,1);renderRepeat(base);});
+}
+function confirmRepeat(){
+  const base=form;
+  repDrafts.forEach(r=>{
+    if(!r.date)return;
+    const copy=JSON.parse(JSON.stringify(base));
+    copy.id=uid(); copy.date=r.date;
+    copy.checklist=(base.checklist||[]).map(c=>({id:uid(),text:c.text,done:false}));
+    state.exams.push(copy);
+  });
+  save();closeOv('repeatOv');render();
 }
 function delExamFromForm(){
   state.exams=state.exams.filter(e=>e.id!==form.id);
   state.paths.forEach(p=>p.examIds=p.examIds.filter(x=>x!==form.id));
   state.paths=state.paths.filter(p=>p.examIds.length);
   save();closeOv('examOv');render();
+}
+
+/* ---- materias ---- */
+let subjForm=null;
+function renderSubjects(){
+  const box=$('#subjBody');
+  if(subjForm){
+    const showT=subjForm.formato!=='practico',showP=subjForm.formato!=='teorico';
+    const sw=SUBJECT_COLORS.map(c=>`<button data-c="${c}" class="${c===subjForm.color?'on':''}" style="background:${c}"></button>`).join('');
+    const seg=(n,v,o)=>`<div class="seg">${o.map(([val,l])=>`<label><input type="radio" name="${n}" value="${val}" ${val===v?'checked':''}><span>${l}</span></label>`).join('')}</div>`;
+    const sl=(k,l,v)=>`<div class="slider" data-k="${k}"><div class="sl-top"><span>${l}</span><b data-v>${v}</b></div><input type="range" min="0" max="100" step="5" value="${v}"></div>`;
+    box.innerHTML=`
+      <div class="field"><label>Nombre de la materia</label><input id="sName" type="text" placeholder="Ej: Transferencia" value="${esc(subjForm.name)}"></div>
+      <div class="field"><label>Color</label><div class="swatches" id="sSw">${sw}</div></div>
+      <div class="field"><label>Formato</label>${seg('sfmt',subjForm.formato,[['teorico','Teórico'],['practico','Práctico'],['teorico-practico','T. y P.']])}</div>
+      <div class="field"><label>Modalidad</label>${seg('smod',subjForm.modalidad,[['oral','Oral'],['escrito','Escrito'],['ambos','Ambos']])}</div>
+      <div class="field"><label>Dificultad y contenido típicos</label>${showT?sl('difTeoria','Dificultad teórica',subjForm.difTeoria):''}${showP?sl('difPractica','Dificultad práctica',subjForm.difPractica):''}${sl('contenido','Cantidad de contenido',subjForm.contenido)}</div>
+      <div style="display:flex;gap:9px;margin-top:4px"><button class="btn" id="sCancel" style="flex:1">Cancelar</button><button class="btn primary" id="sSave" style="flex:2">Guardar materia</button></div>`;
+    $('#sName').oninput=e=>subjForm.name=e.target.value;
+    $('#sSw').querySelectorAll('button').forEach(b=>b.onclick=()=>{subjForm.color=b.dataset.c;renderSubjects();});
+    box.querySelectorAll('input[name=sfmt]').forEach(r=>r.onchange=()=>{subjForm.formato=r.value;renderSubjects();});
+    box.querySelectorAll('input[name=smod]').forEach(r=>r.onchange=()=>subjForm.modalidad=r.value);
+    box.querySelectorAll('.slider').forEach(s=>{const k=s.dataset.k,o=s.querySelector('[data-v]'),inp=s.querySelector('input');
+      inp.oninput=()=>{subjForm[k]=+inp.value;o.textContent=inp.value;};});
+    $('#sCancel').onclick=()=>{subjForm=null;renderSubjects();};
+    $('#sSave').onclick=saveSubject;
+    return;
+  }
+  if(!state.subjects.length){box.innerHTML=`<div class="empty-note">Guardá tus materias una vez (nombre, color, dificultad típica) y después las cargás de un toque al crear un examen. Ideal para los llamados que se repiten.<br><br>Tocá <b>+ Nueva materia</b>.</div>`;return;}
+  box.innerHTML=state.subjects.map(s=>`<div class="subjrow">
+    <span class="cdot" style="background:${s.color}"></span>
+    <div class="sinfo"><div class="sname">${esc(s.name)}</div><div class="ssub">${fmtName(s)} · dif base ${difficulty(s)}</div></div>
+    <button class="btn sm" data-edit="${s.id}">Editar</button><button class="btn sm" data-del="${s.id}">✕</button></div>`).join('');
+  box.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{subjForm=JSON.parse(JSON.stringify(state.subjects.find(s=>s.id===b.dataset.edit)));renderSubjects();});
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(confirm('¿Quitar esta materia? (no afecta a los exámenes ya creados)')){state.subjects=state.subjects.filter(s=>s.id!==b.dataset.del);save();renderSubjects();}});
+}
+function saveSubject(){
+  if(!subjForm.name.trim()){$('#sName').focus();return;}
+  subjForm.name=subjForm.name.trim();
+  const i=state.subjects.findIndex(s=>s.id===subjForm.id);
+  if(i>=0)state.subjects[i]=subjForm;else state.subjects.push(subjForm);
+  subjForm=null;save();renderSubjects();
+}
+function newSubject(){
+  subjForm={id:uid(),name:'',color:SUBJECT_COLORS[state.subjects.length%SUBJECT_COLORS.length],
+    formato:'teorico-practico',modalidad:'escrito',difTeoria:50,difPractica:50,contenido:50,temas:[]};
+  renderSubjects();
 }
 
 /* ---- paths ---- */
@@ -633,7 +785,7 @@ function renderPlan(){
 }
 
 /* ---- overlays ---- */
-function openOv(id){$('#'+id).classList.add('open');if(id==='pathsOv')renderPaths();if(id==='syncOv')fillSync();}
+function openOv(id){$('#'+id).classList.add('open');if(id==='pathsOv')renderPaths();if(id==='syncOv')fillSync();if(id==='subjOv')renderSubjects();}
 function closeOv(id){$('#'+id).classList.remove('open');}
 
 /* ================= USUARIO EN LA NUBE (HTTPS directo, sin SDK) =================
@@ -802,6 +954,8 @@ $('#pathBtn').onclick=togglePathMode;
 $('#pathsBtn').onclick=()=>openOv('pathsOv');
 $('#syncPill').onclick=()=>openOv('syncOv');
 $('#examSave').onclick=saveExam;
+$('#repConfirm').onclick=confirmRepeat;
+$('#subjAdd').onclick=newSubject;
 $('#demoBtn').onclick=loadDemo;
 $('#clearBtn').onclick=wipe;
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeOv(b.dataset.close));
