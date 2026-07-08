@@ -302,6 +302,9 @@ const FIREBASE_CONFIG = {
   appId: "1:200089656468:web:44e442bedca05fb2162881"
 };
 /* ===================================================================== */
+/* Nombre de la base de datos Firestore. Casi siempre es "(default)".
+   Si en tu consola la base tiene otro nombre, escribilo acá. */
+const FIRESTORE_DB = "(default)";
 const CLOUD_READY = !!(FIREBASE_CONFIG && FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.projectId);
 
 const $=s=>document.querySelector(s);
@@ -639,7 +642,7 @@ function closeOv(id){$('#'+id).classList.remove('open');}
    - Cada cambio se sube al instante por HTTPS común (fetch).
    - Un sondeo cada 2,5 s trae lo que cambió en otros dispositivos. */
 const sync={on:false,last:0,lastTs:0,timer:null,polling:false};
-const FS_BASE='https://firestore.googleapis.com/v1/projects/'+FIREBASE_CONFIG.projectId+'/databases/(default)/documents/planners/';
+const FS_BASE='https://firestore.googleapis.com/v1/projects/'+FIREBASE_CONFIG.projectId+'/databases/'+FIRESTORE_DB+'/documents/planners/';
 function fsUrl(code){return FS_BASE+encodeURIComponent(code)+'?key='+encodeURIComponent(FIREBASE_CONFIG.apiKey);}
 function fsParse(doc){ /* documento REST → {json,ts,by} */
   try{const f=doc.fields||{};
@@ -648,19 +651,25 @@ function fsParse(doc){ /* documento REST → {json,ts,by} */
             by:f.by&&f.by.stringValue||''};
   }catch(e){return {json:null,ts:0,by:''};}
 }
+async function fsErr(r){
+  let m='';try{const j=await r.json();m=j&&j.error&&j.error.message||'';}catch(e){}
+  throw {code:'http-'+r.status,msg:m};
+}
 async function fsGet(code){
   const r=await fetch(fsUrl(code),{cache:'no-store'});
   if(r.status===404)return {missing:true};
-  if(!r.ok)throw {code:'http-'+r.status};
+  if(!r.ok)await fsErr(r);
   return fsParse(await r.json());
 }
 async function fsPut(code,obj){
   const body={fields:{json:{stringValue:obj.json},ts:{integerValue:String(obj.ts)},by:{stringValue:obj.by}}};
   const r=await fetch(fsUrl(code),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok)throw {code:'http-'+r.status};
+  if(!r.ok)await fsErr(r);
 }
+function errDetail(err){return err&&err.msg?'<br><code>'+esc(err.msg)+'</code>':'';}
 function errHelp(c){
   if(c==='http-403')return 'Faltan las reglas de Firestore: en la consola poné allow read, write: if true; y publicá.';
+  if(c==='http-404')return 'El proyecto no tiene una base Firestore llamada "(default)". Entrá a console.firebase.google.com → Build → Firestore Database: si ofrece "Crear base de datos", creala en <b>edición Standard</b>, ID <b>(default)</b>, en <b>modo de prueba</b>. Si ya existe con otro nombre, escribí ese nombre en FIRESTORE_DB dentro del archivo.';
   if(c==='http-400')return 'Revisá que Firestore Database esté creado en el proyecto.';
   if(String(c).indexOf('http-')===0)return 'La nube respondió con un error ('+c+').';
   return 'No llega al servidor: revisá internet, VPN o DNS privado del dispositivo.';
@@ -728,7 +737,7 @@ function login(code){
     startPolling();
   }).catch(err=>{
     sync.on=false;setDot('err');const c=err&&err.code?err.code:'';
-    status('No pude leer la nube'+(c?(' ('+esc(c)+')'):'')+'. '+errHelp(c),'err');
+    status('No pude leer la nube'+(c?(' ('+esc(c)+')'):'')+'. '+errHelp(c)+errDetail(err),'err');
   });
 }
 function pushRemote(force){
@@ -737,7 +746,7 @@ function pushRemote(force){
   fsPut(USER,{json:JSON.stringify(state),ts:ts,by:DEVICE_ID})
     .then(()=>{sync.lastTs=ts;sync.last=Date.now();sync.on=true;setDot('on');})
     .catch(err=>{setDot('err');const c=err&&err.code?err.code:'';
-      status('No pude guardar en la nube'+(c?(' ('+esc(c)+')'):'')+'. '+errHelp(c),'err');});
+      status('No pude guardar en la nube'+(c?(' ('+esc(c)+')'):'')+'. '+errHelp(c)+errDetail(err),'err');});
 }
 function enterCode(){
   const code=($('#syncCode').value||'').trim().toLowerCase();
@@ -750,10 +759,10 @@ function testConn(){
   if(!CLOUD_READY){$('#setupBox').style.display='block';status('Primero configurá la nube (ver abajo).','err');return;}
   status('Probando…');
   const t0=Date.now();
-  fsPut('__test__',{json:'{}',ts:Date.now(),by:DEVICE_ID})
-    .then(()=>fsGet('__test__'))
+  fsPut('test-conexion',{json:'{}',ts:Date.now(),by:DEVICE_ID})
+    .then(()=>fsGet('test-conexion'))
     .then(()=>status('Conexión OK ✓ ida y vuelta en '+((Date.now()-t0)/1000).toFixed(1)+' s.','on'))
-    .catch(err=>{const c=err&&err.code?err.code:'';status('Falló la prueba'+(c?(' ('+esc(c)+')'):'')+'. '+errHelp(c),'err');});
+    .catch(err=>{const c=err&&err.code?err.code:'';status('Falló la prueba'+(c?(' ('+esc(c)+')'):'')+'. '+errHelp(c)+errDetail(err),'err');});
 }
 function logout(){
   stopPolling();sync.on=false;
