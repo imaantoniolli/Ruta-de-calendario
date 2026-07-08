@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#F3F2EE">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<title>Ruta de finales</title>
+<title>Ruta de eventos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -53,6 +53,7 @@
   svg.routes{position:absolute;top:0;left:0;height:100%;pointer-events:none;overflow:visible;z-index:1}
   .weeks{position:relative;z-index:2}
   .week{margin-bottom:26px}
+  .week.alt{background:rgba(51,57,61,.028);border-radius:14px;margin-left:-8px;margin-right:-8px;padding:2px 8px 8px}
   .week-h{display:flex;align-items:baseline;gap:10px;padding-bottom:6px;margin-bottom:14px;
     border-bottom:1px solid var(--line)}
   .week-h .wk{font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:700}
@@ -224,12 +225,49 @@
   .reprow2 input[type=date]{flex:1;padding:11px 12px;border:1px solid var(--line-2);border-radius:11px;font-size:15px;background:var(--surface);color:var(--ink)}
   .reprow2 .repdel{color:var(--muted);padding:8px 10px;border-radius:9px}
   .reprow2 .repdel:active{background:var(--line)}
+  .numsel{display:flex;gap:6px;flex-wrap:wrap}
+  .numsel button{min-width:44px;height:40px;padding:0 8px;border:1px solid var(--line-2);border-radius:10px;
+    background:var(--surface);font-size:14px;font-weight:600;color:var(--muted)}
+  .numsel button.on{border-color:var(--accent);background:var(--accent);color:#F5F4F0}
+  .repnumsel{padding:11px 8px;border:1px solid var(--line-2);border-radius:11px;background:var(--surface);
+    font-size:14px;color:var(--ink);flex:0 0 auto}
+  /* calendario */
+  .cal-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .cal-nav .cbtn{width:40px;height:40px;border:1px solid var(--line-2);border-radius:11px;background:var(--surface);
+    font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .cal-nav .cmon{font-family:var(--disp);font-size:18px;font-weight:600;flex:1;text-align:center;text-transform:capitalize}
+  .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .cal-dow{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;text-align:center;padding:2px 0}
+  .cal-cell{aspect-ratio:1;border:1px solid var(--line);border-radius:9px;background:var(--surface);
+    padding:3px;display:flex;flex-direction:column;gap:2px;overflow:hidden;min-height:0}
+  .cal-cell.out{background:transparent;border-color:transparent}
+  .cal-cell.today{border-color:var(--accent);border-width:1.5px}
+  .cal-cell .cnum{font-size:10.5px;font-weight:700;color:var(--muted);line-height:1}
+  .cal-cell.hasx .cnum{color:var(--ink)}
+  .cal-dot{font-size:8.5px;font-weight:700;line-height:1.15;padding:2px 3px;border-radius:5px;color:#33393D;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+  .cal-more{font-size:8px;color:var(--muted);font-weight:700;padding-left:2px}
+  .cal-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .cal-legend .li{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .cal-legend .li .d{width:11px;height:11px;border-radius:4px}
+  .etabs{display:flex;gap:6px;background:rgba(51,57,61,.05);padding:4px;border-radius:12px;margin-bottom:16px}
+  .etabs button{flex:1;padding:9px;border-radius:9px;font-size:13.5px;font-weight:700;color:var(--muted)}
+  .etabs button.on{background:var(--surface);color:var(--ink);box-shadow:var(--sh)}
+  .seg.wrap label{min-width:0;flex:1 1 46%}
+  .evtag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    padding:3px 8px;border-radius:99px;background:rgba(51,57,61,.08);color:var(--ink)}
+  .card.ev .name{font-size:15px}
+  .viewtoggle{margin-top:8px;padding-top:14px;border-top:1px solid var(--line)}
+  .minichk{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);font-weight:600}
+  .minichk input{width:16px;height:16px;accent-color:var(--accent)}
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Ruta de finales</h1>
+  <h1>Ruta de eventos</h1>
+  <button class="pill" id="calPill" title="Calendario" style="max-width:none;padding:8px 11px">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9h18M8 2.5v4M16 2.5v4"/></svg></button>
   <button class="pill" id="syncPill"><span class="dot" id="sdot"></span><span class="lbl" id="slbl">Ingresar</span></button>
 </header>
 
@@ -245,7 +283,7 @@
 
 <div class="bar-bottom">
   <button class="bb" id="addBtn">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Examen</button>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Evento</button>
   <button class="bb primary" id="pathBtn">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.3"/><circle cx="19" cy="18" r="2.3"/><path d="M7.3 6H14a3 3 0 0 1 0 6H10a3 3 0 0 0 0 6h6.7"/></svg>Camino</button>
   <button class="bb" id="pathsBtn">
@@ -257,6 +295,12 @@
   <div class="ov-h"><button class="ov-back" data-close="examOv">‹ Volver</button><h2 id="examTitle">Examen</h2></div>
   <div class="ov-body" id="examBody"></div>
   <div class="ov-foot"><button class="bb" data-close="examOv">Cancelar</button><button class="bb primary" id="examSave">Guardar</button></div>
+</div></div>
+
+<!-- calendar overlay -->
+<div class="ov" id="calOv"><div class="ov-card">
+  <div class="ov-h"><button class="ov-back" data-close="calOv">‹ Volver</button><h2>Calendario</h2></div>
+  <div class="ov-body" id="calBody"></div>
 </div></div>
 
 <!-- repeat overlay -->
@@ -326,7 +370,7 @@
 
 <script>
 "use strict";
-const APP_VERSION='8';
+const APP_VERSION='10';
 
 /* ======================================================================
    CONFIGURACIÓN DE LA NUBE — completar UNA SOLA VEZ (ya está tu proyecto).
@@ -366,7 +410,18 @@ function storeKey(){return 'rf-data:'+(USER||'local');}
 let state=loadLocal();
 normalize();
 let build=false, draft=[], iso=null, expanded=new Set();
+let onlyExams=(lsGet('rf-only')==='1');
 let form=null;
+/* un "ítem" del tablero es un examen o un evento. Los caminos referencian ids de cualquiera. */
+function isExam(it){return it&&it.kind!=='evento'&&!('tipo'in it&&!('difTeoria'in it));}
+function findItem(id){return state.exams.find(e=>e.id===id)||(state.events||[]).find(v=>v.id===id)||null;}
+function itemIsEvent(id){return (state.events||[]).some(v=>v.id===id);}
+function boardItems(){ /* lo que se muestra en el tablero según el filtro */
+  const evs=onlyExams?[]:(state.events||[]);
+  return state.exams.concat(evs);
+}
+const EVENT_TYPES=[['parcial','Parcial'],['tp','Entrega de TP'],['reunion','Reunión'],['vacaciones','Vacaciones'],['otro','Otro']];
+function eventTypeLabel(t){const f=EVENT_TYPES.find(x=>x[0]===t);return f?f[1]:'Evento';}
 
 function loadLocal(){
   try{
@@ -386,7 +441,7 @@ const uid=()=>Math.random().toString(36).slice(2,9);
 function num(v,d){return typeof v==='number'?v:d;}
 function normalize(){
   if(!state||typeof state!=='object')state={exams:[],paths:[]};
-  state.exams=(state.exams||[]).filter(e=>e&&e.date).map((e,i)=>({id:e.id||uid(),name:e.name||'Examen',date:e.date,
+  state.exams=(state.exams||[]).filter(e=>e&&e.date).map((e,i)=>({id:e.id||uid(),name:e.name||'Examen',date:e.date,llamado:num(e.llamado,0),
     color:SUBJECT_COLORS.includes(e.color)?e.color:SUBJECT_COLORS[i%SUBJECT_COLORS.length],
     formato:e.formato||'teorico-practico',modalidad:e.modalidad||'escrito',
     difTeoria:num(e.difTeoria,50),difPractica:num(e.difPractica,50),contenido:num(e.contenido,50),preparado:num(e.preparado,20),
@@ -398,6 +453,8 @@ function normalize(){
     formato:s.formato||'teorico-practico',modalidad:s.modalidad||'escrito',
     difTeoria:num(s.difTeoria,50),difPractica:num(s.difPractica,50),contenido:num(s.contenido,50),
     temas:Array.isArray(s.temas)?s.temas:[]}));
+  state.events=(state.events||[]).filter(v=>v&&v.date).map((v,i)=>({id:v.id||uid(),name:v.name||'Evento',date:v.date,
+    tipo:v.tipo||'otro',color:SUBJECT_COLORS.includes(v.color)?v.color:SUBJECT_COLORS[i%SUBJECT_COLORS.length]}));
 }
 
 /* dates */
@@ -420,6 +477,8 @@ function darken(hex,f){const h=hex.replace('#','');const c=i=>Math.round(parseIn
 function difficulty(e){const p=[];if(e.formato!=='practico')p.push(e.difTeoria);if(e.formato!=='teorico')p.push(e.difPractica);
   const core=p.length?p.reduce((a,b)=>a+b,0)/p.length:0;return Math.round(core*0.7+e.contenido*0.3);}
 function effort(e){return Math.round(difficulty(e)*(1-e.preparado/100));}
+function ordinal(n){return n>0?(n+'° '):'';}
+function displayName(e){return ordinal(e.llamado)+e.name;}
 function fmtName(e){const F={'teorico':'Teórico','practico':'Práctico','teorico-practico':'Teórico-práctico'}[e.formato];
   const M={'oral':'oral','escrito':'escrito','ambos':'oral y escrito'}[e.modalidad];return `${F} · ${M}`;}
 function pressure(eff,days){if(days<=0)return{lbl:'sin margen',cls:'bad'};const r=eff/days;
@@ -427,13 +486,14 @@ function pressure(eff,days){if(days<=0)return{lbl:'sin margen',cls:'bad'};const 
 
 /* weeks */
 function weeks(){
-  if(!state.exams.length)return[];
-  const ds=state.exams.map(e=>parse(e.date));
+  const all=boardItems();
+  if(!all.length)return[];
+  const ds=all.map(e=>parse(e.date));
   let start=monday(new Date(Math.min(...ds))),end=monday(new Date(Math.max(...ds)));
   const out=[];
   for(let d=new Date(start);d<=end;d=addDays(d,7)){
     const ws=new Date(d),we=addDays(d,6.99);
-    const items=state.exams.filter(e=>{const x=parse(e.date);return x>=ws&&x<=we;}).sort((a,b)=>parse(a.date)-parse(b.date));
+    const items=all.filter(e=>{const x=parse(e.date);return x>=ws&&x<=we;}).sort((a,b)=>parse(a.date)-parse(b.date));
     out.push({start:new Date(d),end:addDays(d,6),items});
   }
   return out;
@@ -450,22 +510,22 @@ function render(){
 function renderInner(){
   document.body.classList.toggle('build',build);
   const wrap=$('#weeks');
-  if(!state.exams.length){
+  if(!boardItems().length){
     wrap.style.marginLeft='0px';
     wrap.innerHTML=`<div style="margin:auto;max-width:340px;text-align:center;color:var(--muted);padding:40px 8px">
-      <div style="font-family:var(--disp);font-size:18px;font-weight:600;color:var(--ink);margin-bottom:7px">${USER?'Este usuario no tiene exámenes aún':'Todavía no hay exámenes'}</div>
-      <div style="font-size:13.5px;line-height:1.65">Tocá <b style="color:var(--ink)">Examen</b> abajo para cargar tu primer final${USER?' — quedará guardado en tu usuario <b style=\"color:var(--ink)\">'+esc(USER)+'</b>':''}.</div></div>`;
+      <div style="font-family:var(--disp);font-size:18px;font-weight:600;color:var(--ink);margin-bottom:7px">${onlyExams&&state.events.length?'No hay exámenes':'Todavía no hay nada cargado'}</div>
+      <div style="font-size:13.5px;line-height:1.65">Tocá <b style="color:var(--ink)">Evento</b> abajo para cargar un examen o un evento${USER?' — se guarda en tu usuario <b style=\"color:var(--ink)\">'+esc(USER)+'</b>':''}.</div></div>`;
     $('#routes').innerHTML='';
     return;
   }
   wrap.style.marginLeft=gutterWidth()+'px';
   const ws=weeks();
-  wrap.innerHTML=ws.map((w,i)=>`<div class="week ${w.items.length?'':'empty'}">
+  wrap.innerHTML=ws.map((w,i)=>`<div class="week ${w.items.length?'':'empty'} ${i%2?'alt':''}">
     <div class="week-h"><span class="wk">Semana ${i+1}</span><span class="rng">${fmtShort(w.start)} – ${fmtShort(w.end)}</span></div>
-    <div class="week-body">${w.items.map(cardHTML).join('')}</div></div>`).join('');
+    <div class="week-body">${w.items.map(it=>itemIsEvent(it.id)?eventCardHTML(it):cardHTML(it)).join('')}</div></div>`).join('');
   document.querySelectorAll('.card').forEach(c=>{
     const id=c.dataset.id;
-    c.onclick=()=>{ build?toggleDraft(id):openExam(id); };
+    c.onclick=()=>{ build?toggleDraft(id):(itemIsEvent(id)?openEvent(id):openExam(id)); };
   });
   applyPick();
   requestAnimationFrame(drawRoutes);
@@ -477,10 +537,18 @@ function cardHTML(e){
   return `<div class="card" data-id="${e.id}" style="--sc:${dk};background:${rgba(e.color,0.2)};border-color:${rgba(e.color,0.6)}">
     <span class="stn"></span><span class="order"></span>
     <div class="day">${fmtDay(e.date)}</div>
-    <div class="name">${esc(e.name)}</div>
+    <div class="name">${esc(displayName(e))}</div>
     <div class="tags">${fmtName(e)}</div>
     <div class="mini"><span class="lbl">Dif</span><div class="bar"><i style="width:${d}%;background:#4A5259"></i></div><span class="num">${d}</span></div>
     <div class="mini"><span class="lbl">Prep</span><div class="bar"><i style="width:${pr}%;background:#9AA1A6"></i></div><span class="num">${pr}%</span></div>${cl}</div>`;
+}
+function eventCardHTML(v){
+  const dk=darken(v.color,0.55);
+  return `<div class="card ev" data-id="${v.id}" style="--sc:${dk};background:${rgba(v.color,0.2)};border-color:${rgba(v.color,0.6)}">
+    <span class="stn"></span><span class="order"></span>
+    <div class="day">${fmtDay(v.date)}</div>
+    <div class="name">${esc(v.name)}</div>
+    <div class="tags"><span class="evtag">${esc(eventTypeLabel(v.tipo))}</span></div></div>`;
 }
 function applyPick(){
   document.querySelectorAll('.card').forEach(c=>{
@@ -555,15 +623,72 @@ function updateBar(){
   }
 }
 
-/* ---- exam ---- */
+/* ---- editor (examen o evento) ---- */
+let editorKind='examen', editorNew=true;
+function tabsHTML(){
+  if(!editorNew)return '';
+  return `<div class="etabs"><button data-k="examen" class="${editorKind==='examen'?'on':''}">Examen</button><button data-k="evento" class="${editorKind==='evento'?'on':''}">Evento</button></div>`;
+}
+function wireTabs(){
+  document.querySelectorAll('.etabs button').forEach(b=>b.onclick=()=>setKind(b.dataset.k));
+}
+function setKind(k){
+  if(k===editorKind)return;
+  editorKind=k;
+  if(k==='evento')form={id:uid(),name:'',date:ymd(today()),tipo:'parcial',color:SUBJECT_COLORS[(state.events.length)%SUBJECT_COLORS.length]};
+  else form={id:uid(),name:'',date:ymd(today()),llamado:0,color:SUBJECT_COLORS[state.exams.length%SUBJECT_COLORS.length],formato:'teorico-practico',modalidad:'escrito',difTeoria:50,difPractica:50,contenido:50,preparado:20,checklist:[]};
+  renderEditor();
+}
+function renderEditor(){ if(editorKind==='evento')renderEventForm(); else renderExam(); }
 function openExam(id){
+  editorKind='examen'; editorNew=!id;
   const e=id?state.exams.find(x=>x.id===id):null;
-  form=e?JSON.parse(JSON.stringify(e)):{id:uid(),name:'',date:ymd(today()),color:SUBJECT_COLORS[state.exams.length%SUBJECT_COLORS.length],
+  form=e?JSON.parse(JSON.stringify(e)):{id:uid(),name:'',date:ymd(today()),llamado:0,color:SUBJECT_COLORS[state.exams.length%SUBJECT_COLORS.length],
     formato:'teorico-practico',modalidad:'escrito',difTeoria:50,difPractica:50,contenido:50,preparado:20,checklist:[]};
-  $('#examTitle').textContent=id?'Editar examen':'Nuevo examen';
-  renderExam(); openOv('examOv');
+  $('#examTitle').textContent=id?'Editar examen':'Nuevo';
+  renderEditor(); openOv('examOv');
   if(!form.name)setTimeout(()=>{const n=$('#exName');n&&n.focus();},80);
 }
+function openEvent(id){
+  editorKind='evento'; editorNew=!id;
+  const v=id?state.events.find(x=>x.id===id):null;
+  form=v?JSON.parse(JSON.stringify(v)):{id:uid(),name:'',date:ymd(today()),tipo:'parcial',color:SUBJECT_COLORS[(state.events.length)%SUBJECT_COLORS.length]};
+  $('#examTitle').textContent=id?'Editar evento':'Nuevo';
+  renderEditor(); openOv('examOv');
+  if(!form.name)setTimeout(()=>{const n=$('#evName');n&&n.focus();},80);
+}
+function renderEventForm(){
+  const sw=SUBJECT_COLORS.map(c=>`<button data-c="${c}" class="${c===form.color?'on':''}" style="background:${c}"></button>`).join('');
+  const tipos=EVENT_TYPES.map(([v,l])=>`<label><input type="radio" name="etipo" value="${v}" ${v===form.tipo?'checked':''}><span>${l}</span></label>`).join('');
+  $('#examBody').innerHTML=`
+    ${tabsHTML()}
+    <div class="field"><label>Nombre del evento</label><input id="evName" type="text" placeholder="Ej: Entrega TP Física" value="${esc(form.name)}"></div>
+    <div class="field"><label>Fecha</label><input id="evDate" type="date" value="${form.date}"></div>
+    <div class="field"><label>Tipo</label><div class="seg wrap">${tipos}</div></div>
+    <div class="field"><label>Color</label><div class="swatches" id="evSw">${sw}</div></div>
+    ${state.events.some(x=>x.id===form.id)?'<button class="btn" id="evDelete" style="width:100%;color:var(--bad);border-color:#E0C6BE;margin-top:4px">Eliminar evento</button>':''}`;
+  wireTabs();
+  $('#evName').oninput=e=>form.name=e.target.value;
+  $('#evDate').onchange=e=>form.date=e.target.value;
+  $('#examBody').querySelectorAll('input[name=etipo]').forEach(r=>r.onchange=()=>form.tipo=r.value);
+  $('#evSw').querySelectorAll('button').forEach(b=>b.onclick=()=>{form.color=b.dataset.c;renderEventForm();});
+  const del=$('#evDelete'); if(del)del.onclick=()=>{ if(confirm('¿Eliminar este evento?'))delEvent(); };
+}
+function saveEvent(){
+  if(!form.name.trim()){$('#evName').focus();return;}
+  if(!form.date){$('#evDate').focus();return;}
+  form.name=form.name.trim();
+  const i=state.events.findIndex(x=>x.id===form.id);
+  if(i>=0)state.events[i]=form;else state.events.push(form);
+  save();closeOv('examOv');render();
+}
+function delEvent(){
+  state.events=state.events.filter(x=>x.id!==form.id);
+  state.paths.forEach(p=>p.examIds=p.examIds.filter(x=>x!==form.id));
+  state.paths=state.paths.filter(p=>p.examIds.length);
+  save();closeOv('examOv');render();
+}
+/* ---- exam ---- */
 function renderExam(){
   const showT=form.formato!=='practico',showP=form.formato!=='teorico';
   const sw=SUBJECT_COLORS.map(c=>`<button data-c="${c}" class="${c===form.color?'on':''}" style="background:${c}"></button>`).join('');
@@ -572,9 +697,13 @@ function renderExam(){
   const ck=form.checklist.map(c=>`<div class="ckrow ${c.done?'done':''}" data-id="${c.id}"><input type="checkbox" ${c.done?'checked':''}><span class="t">${esc(c.text)}</span><button class="x">✕</button></div>`).join('');
   const subjChips=(state.subjects&&state.subjects.length)?`<div class="field"><label>Materias guardadas</label><div class="chips">${state.subjects.map(s=>`<button class="chip" data-sid="${s.id}"><span class="cdot" style="background:${s.color}"></span>${esc(s.name)}</button>`).join('')}<button class="chip ghost" id="goSubjects">Gestionar…</button></div></div>`:`<div class="field"><label>Materias</label><button class="chip ghost" id="goSubjects">Crear materias reutilizables…</button></div>`;
   $('#examBody').innerHTML=`
+    ${tabsHTML()}
     ${subjChips}
     <div class="field"><label>Materia</label><input id="exName" type="text" placeholder="Ej: Análisis II" value="${esc(form.name)}"></div>
     <div class="field"><label>Fecha</label><input id="exDate" type="date" value="${form.date}"></div>
+    <div class="field"><label>N° de llamado (opcional)</label>
+      <div class="numsel" id="numsel">${[0,1,2,3,4,5].map(n=>`<button data-n="${n}" class="${n===(form.llamado||0)?'on':''}">${n===0?'—':n+'°'}</button>`).join('')}</div>
+      <div class="muted-note">Si elegís un número, la materia se muestra como “${form.llamado?form.llamado+'° ':'2° '}${esc(form.name||'Transferencia')}”.</div></div>
     <div class="field"><label>Color</label><div class="swatches" id="sw">${sw}</div></div>
     <div class="field"><label>Formato</label>${seg('formato',form.formato,[['teorico','Teórico'],['practico','Práctico'],['teorico-practico','T. y P.']])}</div>
     <div class="field"><label>Modalidad</label>${seg('modalidad',form.modalidad,[['oral','Oral'],['escrito','Escrito'],['ambos','Ambos']])}</div>
@@ -600,6 +729,7 @@ function renderExam(){
     });
   }
   const gs=$('#goSubjects'); if(gs)gs.onclick=()=>openOv('subjOv');
+  wireTabs();
   $('#examBody').querySelectorAll('.chip[data-sid]').forEach(b=>b.onclick=()=>{
     const s=state.subjects.find(x=>x.id===b.dataset.sid); if(!s)return;
     form.name=s.name;form.color=s.color;form.formato=s.formato;form.modalidad=s.modalidad;
@@ -610,6 +740,7 @@ function renderExam(){
   const delBtn=$('#exDelete'); if(delBtn)delBtn.onclick=()=>{ if(confirm('¿Eliminar este examen?'))delExamFromForm(); };
   $('#exName').oninput=e=>form.name=e.target.value;
   $('#exDate').onchange=e=>form.date=e.target.value;
+  $('#numsel').querySelectorAll('button').forEach(b=>b.onclick=()=>{form.llamado=+b.dataset.n;renderExam();});
   $('#sw').querySelectorAll('button').forEach(b=>b.onclick=()=>{form.color=b.dataset.c;renderExam();});
   $('#examBody').querySelectorAll('input[name=formato]').forEach(r=>r.onchange=()=>{form.formato=r.value;renderExam();});
   $('#examBody').querySelectorAll('input[name=modalidad]').forEach(r=>r.onchange=()=>form.modalidad=r.value);
@@ -622,6 +753,7 @@ function renderExam(){
     row.querySelector('.x').onclick=()=>{form.checklist=form.checklist.filter(c=>c.id!==id);renderExam();};});
 }
 function saveExam(){
+  if(editorKind==='evento')return saveEvent();
   if(!form.name.trim()){$('#exName').focus();return;}
   if(!form.date){$('#exDate').focus();return;}
   form.name=form.name.trim();
@@ -638,20 +770,22 @@ let repDrafts=[];
 function openRepeat(base,count,gap){
   repDrafts=[];
   let d=parse(base.date);
-  for(let i=0;i<count;i++){ d=addDays(d,gap); repDrafts.push({date:ymd(d)}); }
-  $('#repTitle').textContent='Repetir: '+base.name;
+  const baseNum=base.llamado||0;
+  for(let i=0;i<count;i++){ d=addDays(d,gap); repDrafts.push({date:ymd(d),llamado:baseNum?baseNum+i+1:0}); }
+  $('#repTitle').textContent='Repetir: '+displayName(base);
   renderRepeat(base);
   openOv('repeatOv');
 }
 function renderRepeat(base){
   $('#repBody').innerHTML=`
-    <div class="muted-note" style="margin-bottom:14px">Revisá o corregí las fechas de los próximos llamados de <b>${esc(base.name)}</b>. Podés quitar el que no quieras.</div>
+    <div class="muted-note" style="margin-bottom:14px">Revisá las fechas y el número de los próximos llamados de <b>${esc(base.name)}</b>. Podés quitar el que no quieras.</div>
     ${repDrafts.map((r,i)=>`<div class="reprow2" data-i="${i}">
-      <span class="repnum">Llamado +${i+1}</span>
+      <select class="repnumsel" data-i="${i}">${[0,1,2,3,4,5,6,7].map(n=>`<option value="${n}" ${n===r.llamado?'selected':''}>${n===0?'—':n+'°'}</option>`).join('')}</select>
       <input type="date" value="${r.date}" data-i="${i}">
       <button class="repdel" data-i="${i}" title="Quitar">✕</button></div>`).join('')}
     ${repDrafts.length===0?'<div class="empty-note">No quedan llamados para crear.</div>':''}`;
   $('#repBody').querySelectorAll('input[type=date]').forEach(inp=>inp.onchange=()=>{repDrafts[+inp.dataset.i].date=inp.value;});
+  $('#repBody').querySelectorAll('.repnumsel').forEach(sel=>sel.onchange=()=>{repDrafts[+sel.dataset.i].llamado=+sel.value;});
   $('#repBody').querySelectorAll('.repdel').forEach(b=>b.onclick=()=>{repDrafts.splice(+b.dataset.i,1);renderRepeat(base);});
 }
 function confirmRepeat(){
@@ -659,7 +793,7 @@ function confirmRepeat(){
   repDrafts.forEach(r=>{
     if(!r.date)return;
     const copy=JSON.parse(JSON.stringify(base));
-    copy.id=uid(); copy.date=r.date;
+    copy.id=uid(); copy.date=r.date; copy.llamado=r.llamado||0;
     copy.checklist=(base.checklist||[]).map(c=>({id:uid(),text:c.text,done:false}));
     state.exams.push(copy);
   });
@@ -720,25 +854,30 @@ function newSubject(){
 }
 
 /* ---- paths ---- */
-function pathExams(p){return p.examIds.map(id=>state.exams.find(e=>e.id===id)).filter(Boolean).sort((a,b)=>parse(a.date)-parse(b.date));}
+function pathExams(p){return p.examIds.map(id=>findItem(id)).filter(Boolean).sort((a,b)=>parse(a.date)-parse(b.date));}
 function legInfo(p){const ex=pathExams(p),base=today();return ex.map((e,i)=>{
   const start=i===0?base:new Date(Math.max(base,parse(ex[i-1].date)));
   const days=Math.max(0,diffDays(start,e.date));
-  return{e,days,dif:difficulty(e),prep:e.preparado,eff:effort(e),pr:pressure(effort(e),days)};});}
+  const ev=itemIsEvent(e.id);
+  if(ev)return{e,days,ev:true,pr:{lbl:eventTypeLabel(e.tipo),cls:'ok'}};
+  return{e,days,ev:false,dif:difficulty(e),prep:e.preparado,eff:effort(e),pr:pressure(effort(e),days)};});}
 function pathStats(p){const ex=pathExams(p);if(ex.length<2)return{span:'—',gap:'—',dif:'—',peak:Infinity};
   const span=diffDays(ex[0].date,ex[ex.length-1].date);let min=Infinity;for(let i=1;i<ex.length;i++)min=Math.min(min,diffDays(ex[i-1].date,ex[i].date));
-  const avg=Math.round(ex.reduce((a,e)=>a+difficulty(e),0)/ex.length);let peak=0;legInfo(p).forEach(l=>{peak=Math.max(peak,l.days<=0?999:l.eff/l.days);});
+  const exams=ex.filter(e=>!itemIsEvent(e.id));
+  const avg=exams.length?Math.round(exams.reduce((a,e)=>a+difficulty(e),0)/exams.length):'—';
+  let peak=0;legInfo(p).forEach(l=>{if(!l.ev)peak=Math.max(peak,l.days<=0?999:l.eff/l.days);});
   return{span:`${span} d`,gap:`${min} d`,dif:String(avg),peak};}
+function itemColor(e){return e.color;}
 function renderPaths(){
   const box=$('#pathsBody');
-  if(!state.paths.length){box.innerHTML=`<div class="empty-note">Sin caminos.<br>Cerrá esto, tocá <b>Camino</b> abajo y elegí un examen por semana para trazar tu ruta.</div>`;return;}
-  let best=null,bp=Infinity;state.paths.forEach(p=>{const s=pathStats(p);if(pathExams(p).length>=2&&s.peak<bp){bp=s.peak;best=p.id;}});
+  if(!state.paths.length){box.innerHTML=`<div class="empty-note">Sin caminos.<br>Cerrá esto, tocá <b>Camino</b> abajo y elegí un ítem por semana para trazar tu ruta.</div>`;renderViewToggle();return;}
+  let best=null,bp=Infinity;state.paths.forEach(p=>{const s=pathStats(p);if(pathExams(p).length>=2&&s.peak<bp&&s.peak<Infinity){bp=s.peak;best=p.id;}});
   box.innerHTML=state.paths.map(p=>{
     const ex=pathExams(p),s=pathStats(p),open=expanded.has(p.id);
-    const names=ex.length?ex.map(e=>`<b>${esc(e.name)}</b>`).join(' → '):'Sin exámenes';
+    const names=ex.length?ex.map(e=>`<b>${esc(itemIsEvent(e.id)?e.name:displayName(e))}</b>`).join(' → '):'Vacío';
     let legs='';
-    if(open)legs=`<div class="legs">${legInfo(p).map(l=>`<div class="leg"><div class="lh"><span class="ldot" style="background:${darken(l.e.color,0.55)}"></span><span class="lname">${esc(l.e.name)}</span><span class="ldate">${fmtDay(l.e.date)}</span></div>
-      <div class="lmeta"><b>${l.days}</b> días de estudio · dif <b>${l.dif}</b> · prep <b>${l.prep}%</b> · esfuerzo <b>${l.eff}</b><span class="tag ${l.pr.cls}">${l.pr.lbl}</span></div></div>`).join('')}</div>`;
+    if(open)legs=`<div class="legs">${legInfo(p).map(l=>`<div class="leg"><div class="lh"><span class="ldot" style="background:${darken(l.e.color,0.55)}"></span><span class="lname">${esc(l.ev?l.e.name:displayName(l.e))}</span><span class="ldate">${fmtDay(l.e.date)}</span></div>
+      <div class="lmeta">${l.ev?('evento · '+esc(eventTypeLabel(l.e.tipo))+' · <b>'+l.days+'</b> días antes'):('<b>'+l.days+'</b> días de estudio · dif <b>'+l.dif+'</b> · prep <b>'+l.prep+'%</b> · esfuerzo <b>'+l.eff+'</b><span class="tag '+l.pr.cls+'">'+l.pr.lbl+'</span>')}</div></div>`).join('')}</div>`;
     return `<div class="path ${iso===p.id?'iso':''}" data-id="${p.id}">
       <div class="path-top"><span class="swatch" style="background:${p.color}"></span><input class="pname" value="${esc(p.name)}" data-id="${p.id}">${p.id===best?'<span class="badge">+ llevadero</span>':''}</div>
       <div class="stops">${names}</div>
@@ -753,6 +892,15 @@ function renderPaths(){
     else if(a==='exp'){expanded.has(id)?expanded.delete(id):expanded.add(id);renderPaths();}
     else if(a==='plan'){openPlan(id);}
   });
+  renderViewToggle();
+}
+function renderViewToggle(){
+  const box=$('#pathsBody');
+  const bar=document.createElement('div');
+  bar.className='viewtoggle';
+  bar.innerHTML=`<label class="minichk"><input type="checkbox" id="onlyExChk" ${onlyExams?'checked':''}> Mostrar solo exámenes en el tablero</label>`;
+  box.appendChild(bar);
+  $('#onlyExChk').onchange=e=>{onlyExams=e.target.checked;lsSet('rf-only',onlyExams?'1':'0');render();};
 }
 
 /* ---- plan ---- */
@@ -760,21 +908,22 @@ let planId=null;
 function buildPlan(p){
   const ex=pathExams(p),base=today(),map={};
   ex.forEach((e,i)=>{
+    if(itemIsEvent(e.id))return;
     const prev=i===0?base:new Date(Math.max(base,parse(ex[i-1].date))),exd=parse(e.date),days=[];
     for(let d=addDays(prev,i===0?0:1);d<exd;d=addDays(d,1))if(d>=base)days.push(new Date(d));
     if(!days.length)days.push(exd>=base?exd:new Date(base));
     const temas=e.checklist.filter(c=>!c.done);
-    const src=temas.length?temas:[{id:'__r',text:'Repasar '+e.name,virtual:true}];
+    const src=temas.length?temas:[{id:'__r',text:'Repasar '+displayName(e),virtual:true}];
     const per=Math.ceil(src.length/days.length);
     src.forEach((t,idx)=>{const d=days[Math.min(days.length-1,Math.floor(idx/per))],k=ymd(d);
-      (map[k]=map[k]||[]).push({examId:e.id,color:darken(e.color,0.55),name:e.name,tema:t.text,cid:t.id,virtual:t.virtual});});
+      (map[k]=map[k]||[]).push({examId:e.id,color:darken(e.color,0.55),name:displayName(e),tema:t.text,cid:t.id,virtual:t.virtual});});
   });
   return Object.keys(map).sort().map(k=>({date:k,tasks:map[k]}));
 }
 function openPlan(id){planId=id;$('#planTitle').textContent='Plan · '+state.paths.find(p=>p.id===id).name;renderPlan();openOv('planOv');}
 function renderPlan(){
   const p=state.paths.find(p=>p.id===planId),plan=buildPlan(p),ex=pathExams(p),byDate={};
-  ex.forEach(e=>byDate[e.date]=e.name);
+  ex.forEach(e=>byDate[e.date]=displayName(e));
   if(!plan.length){$('#planBody').innerHTML=`<div class="empty-note">Agregá temas al checklist de cada examen (tocando su ficha) para generar un plan día por día.</div>`;return;}
   $('#planBody').innerHTML=plan.map(day=>{const d=parse(day.date),et=byDate[day.date];
     return `<div class="planday"><div class="pd-h"><span class="pd-d">${fmtLong(d)}</span>${et?`<span class="pd-w" style="color:var(--bad);font-weight:700">✎ Final: ${esc(et)}</span>`:`<span class="pd-w">${day.tasks.length} tema${day.tasks.length>1?'s':''}</span>`}</div>
@@ -782,6 +931,42 @@ function renderPlan(){
   $('#planBody').querySelectorAll('.ptask').forEach(row=>{const cb=row.querySelector('input');if(cb.disabled)return;
     const e=state.exams.find(x=>x.id===row.dataset.e),it=e&&e.checklist.find(c=>c.id===row.dataset.c);
     cb.onchange=()=>{if(it){it.done=cb.checked;save();row.classList.toggle('done',cb.checked);render();}};});
+}
+
+/* ---- overlays ---- */
+/* ---- calendario mensual (solo lectura) ---- */
+let calRef=null;
+function openCal(){const t=today();calRef=calRef||new Date(t.getFullYear(),t.getMonth(),1);renderCal();openOv('calOv');}
+function renderCal(){
+  const y=calRef.getFullYear(),m=calRef.getMonth();
+  const first=new Date(y,m,1), startOff=(first.getDay()+6)%7; /* lunes=0 */
+  const gridStart=addDays(first,-startOff);
+  const byDate={};
+  state.exams.concat(state.events).forEach(e=>{(byDate[e.date]=byDate[e.date]||[]).push(e);});
+  const monthName=first.toLocaleDateString('es',{month:'long',year:'numeric'});
+  const dows=['lun','mar','mié','jue','vie','sáb','dom'];
+  let cells='';
+  for(let i=0;i<42;i++){
+    const d=addDays(gridStart,i), inMonth=d.getMonth()===m, key=ymd(d), items=byDate[key]||[];
+    const isToday=ymd(d)===ymd(today());
+    const dots=items.slice(0,3).map(e=>`<span class="cal-dot" data-id="${e.id}" style="background:${rgba(e.color,0.55)}">${esc(itemIsEvent(e.id)?e.name:displayName(e))}</span>`).join('');
+    const more=items.length>3?`<span class="cal-more">+${items.length-3}</span>`:'';
+    cells+=`<div class="cal-cell ${inMonth?'':'out'} ${items.length?'hasx':''} ${isToday?'today':''}">
+      ${inMonth?`<span class="cnum">${d.getDate()}</span>${dots}${more}`:''}</div>`;
+    if(i>=34 && d.getMonth()!==m && addDays(gridStart,i+1).getMonth()!==m) break;
+  }
+  $('#calBody').innerHTML=`
+    <div class="cal-nav"><button class="cbtn" id="calPrev">‹</button><div class="cmon">${monthName}</div><button class="cbtn" id="calNext">›</button></div>
+    <div class="cal-grid">${dows.map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells}</div>
+    ${(state.exams.length||state.events.length)?'<div class="cal-legend">'+dedupeSubjects().map(s=>`<span class="li"><span class="d" style="background:${rgba(s.color,0.55)}"></span>${esc(s.name)}</span>`).join('')+'</div>':'<div class="empty-note">No hay nada cargado todavía.</div>'}`;
+  $('#calPrev').onclick=()=>{calRef=new Date(y,m-1,1);renderCal();};
+  $('#calNext').onclick=()=>{calRef=new Date(y,m+1,1);renderCal();};
+  $('#calBody').querySelectorAll('.cal-dot').forEach(b=>b.onclick=()=>{closeOv('calOv');itemIsEvent(b.dataset.id)?openEvent(b.dataset.id):openExam(b.dataset.id);});
+}
+function dedupeSubjects(){
+  const seen={},out=[];
+  state.exams.concat(state.events).forEach(e=>{const k=e.name;if(!seen[k]){seen[k]=1;out.push({name:e.name,color:e.color});}});
+  return out;
 }
 
 /* ---- overlays ---- */
@@ -945,14 +1130,15 @@ function loadDemo(){
     E('Inglés',27,2,'teorico','oral',30,30,40,70,['Reading','Speaking'])];
   state.paths=[];iso=null;expanded.clear();save();closeOv('pathsOv');render();
 }
-function wipe(){if(!state.exams.length&&!state.paths.length)return;
-  if(confirm('¿Vaciar todo? Se borran exámenes y caminos'+(USER?' del usuario '+USER:'')+'.')){state={exams:[],paths:[]};build=false;draft=[];iso=null;expanded.clear();updateBar();save();closeOv('pathsOv');render();}}
+function wipe(){if(!state.exams.length&&!state.paths.length&&!(state.events||[]).length)return;
+  if(confirm('¿Vaciar todo? Se borran exámenes y caminos'+(USER?' del usuario '+USER:'')+'.')){state={exams:[],paths:[],events:[],subjects:[]};build=false;draft=[];iso=null;expanded.clear();updateBar();save();closeOv('pathsOv');render();}}
 
 /* ---- events ---- */
 $('#addBtn').onclick=()=>openExam();
 $('#pathBtn').onclick=togglePathMode;
 $('#pathsBtn').onclick=()=>openOv('pathsOv');
 $('#syncPill').onclick=()=>openOv('syncOv');
+$('#calPill').onclick=openCal;
 $('#examSave').onclick=saveExam;
 $('#repConfirm').onclick=confirmRepeat;
 $('#subjAdd').onclick=newSubject;
