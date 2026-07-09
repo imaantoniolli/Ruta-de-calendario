@@ -79,7 +79,7 @@
   #calFullBody{position:relative;z-index:1}
   body.calfull .cal-cell{min-height:74px;cursor:pointer}
   body.calfull .cal-cell.out{cursor:default}
-  body.calfull .cal-dot{font-size:10px;padding:3px 5px}
+  body.calfull .cal-dot{font-size:10px;padding:3px 9px}
   .cal-dot.picked{outline:2px solid #B0604F;outline-offset:1px}
   .cal-dot.grey{filter:grayscale(1);opacity:.4}
   .cbtn.txt{width:auto;padding:0 13px;font-size:12px;font-weight:700;color:var(--muted)}
@@ -402,7 +402,7 @@
 
 <script>
 "use strict";
-const APP_VERSION='19';
+const APP_VERSION='20';
 
 /* ======================================================================
    CONFIGURACIÓN DE LA NUBE — completar UNA SOLA VEZ (ya está tu proyecto).
@@ -1040,7 +1040,7 @@ function renderCal(sel,sideMode,fullMode){
     if(i>=34 && d.getMonth()!==m && addDays(gridStart,i+1).getMonth()!==m) break;
   }
   const modeBtns = fullMode
-    ? `<button class="cbtn txt cal-mode ${routesMode==='none'?'on':''}" data-m="none">Sin caminos</button><button class="cbtn txt cal-mode ${routesMode==='chosen'?'on':''}" data-m="chosen">Elegido</button>`
+    ? `<button class="cbtn cal-mode ${routesMode==='none'?'on':''}" data-m="none" title="Sin caminos"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h4M5 12h4M5 18h4"/><path d="M15 5l6 14M21 5l-6 14" opacity=".5"/></svg></button><button class="cbtn cal-mode ${routesMode==='chosen'?'on':''}" data-m="chosen" title="Solo el camino elegido"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 5 5.6.6-4.2 3.8 1.2 5.6L12 19l-5 3 1.2-5.6L4 12.6l5.6-.6z"/></svg></button>`
     : '';
   const dualBtn = sideMode
     ? `<button class="cbtn cal-dual" title="Cerrar pantalla dividida">✕</button>`
@@ -1085,8 +1085,9 @@ function drawCalRoutes(){
   const cont=$('#calFullContent');
   svg.setAttribute('width',cont.scrollWidth); svg.setAttribute('height',cont.scrollHeight);
   const cr=cont.getBoundingClientRect();
-  const centerOf=id=>{const el=document.querySelector('#calFullBody .cal-dot[data-id="'+id+'"]');if(!el)return null;
-    const r=el.getBoundingClientRect();return {x:r.left-cr.left+r.width/2,y:r.top-cr.top+r.height/2};};
+  const edges=id=>{const el=document.querySelector('#calFullBody .cal-dot[data-id="'+id+'"]');if(!el)return null;
+    const r=el.getBoundingClientRect();const y=r.top-cr.top+r.height/2;const pad=3;
+    return {L:{x:r.left-cr.left+pad,y},R:{x:r.right-cr.left-pad,y}};};
   const strokes=[];
   state.paths.forEach((p,k)=>{
     if(routesMode==='none')return;
@@ -1096,13 +1097,21 @@ function drawCalRoutes(){
   if(build&&draft.length)strokes.push({ids:draft.slice(),color:autoColor(state.paths.length),dim:false,dash:true});
   let out='';
   strokes.forEach(s=>{
-    const pts=s.ids.map(centerOf).filter(Boolean);
-    if(pts.length<1)return;
+    const eds=s.ids.map(edges).filter(Boolean);
+    if(eds.length<1)return;
+    /* para cada parada, elijo el costado más cercano al vecino siguiente/anterior */
+    const pts=eds.map((e,i)=>{
+      const prev=eds[i-1], next=eds[i+1];
+      const ref = next||prev;                 /* hacia dónde sigue el camino */
+      if(!ref) return e.R;
+      const useR = ref.L.x >= e.R.x - 4;       /* el vecino está a la derecha → salgo por la derecha */
+      return useR ? e.R : e.L;
+    });
     const op=s.dim?0.12:0.9;
     if(pts.length>1){
       let d=`M ${pts[0].x} ${pts[0].y}`;
-      for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i];const my=(a.y+b.y)/2;
-        d+=` C ${a.x} ${my}, ${b.x} ${my}, ${b.x} ${b.y}`;}
+      for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i];const mx=(a.x+b.x)/2;
+        d+=` C ${mx} ${a.y}, ${mx} ${b.y}, ${b.x} ${b.y}`;}
       out+=`<path d="${d}" fill="none" stroke="#FCFBF9" stroke-width="6" stroke-linecap="round" opacity="${s.dim?0.1:0.85}"/>`;
       out+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linecap="round" ${s.dash?'stroke-dasharray="2 7"':''} opacity="${op}"/>`;
     }
