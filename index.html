@@ -53,7 +53,38 @@
   svg.routes{position:absolute;top:0;left:0;height:100%;pointer-events:none;overflow:visible;z-index:1}
   .weeks{position:relative;z-index:2}
   .week{margin-bottom:26px}
-  .week.alt{background:rgba(51,57,61,.028);border-radius:14px;margin-left:-8px;margin-right:-8px;padding:2px 8px 8px}
+  .week.alt{background:rgba(51,57,61,.06);border-radius:14px;margin-left:-8px;margin-right:-8px;padding:4px 8px 10px}
+  /* ---- modo dual ---- */
+  #calSide{display:none}
+  body.dual main{display:flex}
+  body.dual .board{position:relative;inset:auto;flex:1 1 54%;min-width:0}
+  body.dual #calSide{display:block;flex:1 1 46%;min-width:340px;max-width:640px;
+    border-left:1px solid var(--line);overflow:auto;padding:18px 16px;background:var(--paper)}
+  body.dual .card{padding:9px 12px}
+  body.dual .card .tags{display:none}
+  body.dual .card .cl{display:none}
+  body.dual .card .name{font-size:15px;margin:2px 0 3px}
+  body.dual .card .mini{margin-top:3px}
+  .cal-grid.compact .cal-cell{aspect-ratio:auto;min-height:30px}
+  .cal-grid.compact .cal-cell.hasx{min-height:52px}
+  .cal-nav .cal-dual{margin-left:6px}
+  /* ---- vista calendario completo ---- */
+  #calFullWrap{display:none}
+  body.calfull .board{display:none}
+  body.calfull #calSide{display:none!important}
+  body.calfull #calFullWrap{display:block;position:absolute;inset:0;overflow:auto;
+    padding:18px 16px;-webkit-overflow-scrolling:touch}
+  #calFullContent{position:relative;max-width:980px;margin:0 auto}
+  #calRoutes{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;overflow:visible}
+  #calFullBody{position:relative;z-index:1}
+  body.calfull .cal-cell{min-height:74px;cursor:pointer}
+  body.calfull .cal-cell.out{cursor:default}
+  body.calfull .cal-dot{font-size:10px;padding:3px 5px}
+  .cal-dot.picked{outline:2px solid #B0604F;outline-offset:1px}
+  .cal-dot.grey{filter:grayscale(1);opacity:.4}
+  .cbtn.txt{width:auto;padding:0 13px;font-size:12px;font-weight:700;color:var(--muted)}
+  .cbtn.on{background:var(--accent);color:#F5F4F0;border-color:var(--accent)}
+  .cal-nav{flex-wrap:wrap}
   .week-h{display:flex;align-items:baseline;gap:10px;padding-bottom:6px;margin-bottom:14px;
     border-bottom:1px solid var(--line)}
   .week-h .wk{font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);font-weight:700}
@@ -237,8 +268,8 @@
   .cal-nav .cmon{font-family:var(--disp);font-size:18px;font-weight:600;flex:1;text-align:center;text-transform:capitalize}
   .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
   .cal-dow{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700;text-align:center;padding:2px 0}
-  .cal-cell{aspect-ratio:1;border:1px solid var(--line);border-radius:9px;background:var(--surface);
-    padding:3px;display:flex;flex-direction:column;gap:2px;overflow:hidden;min-height:0}
+  .cal-cell{min-height:56px;border:1px solid var(--line);border-radius:9px;background:var(--surface);
+    padding:3px;display:flex;flex-direction:column;gap:2px}
   .cal-cell.out{background:transparent;border-color:transparent}
   .cal-cell.today{border-color:var(--accent);border-width:1.5px}
   .cal-cell .cnum{font-size:10.5px;font-weight:700;color:var(--muted);line-height:1}
@@ -278,6 +309,8 @@
       <div class="weeks" id="weeks"></div>
     </div>
   </div>
+  <aside id="calSide"><div id="calSideBody"></div></aside>
+  <div id="calFullWrap"><div id="calFullContent"><svg id="calRoutes"></svg><div id="calFullBody"></div></div></div>
 </main>
 
 <div class="bar-bottom">
@@ -369,7 +402,7 @@
 
 <script>
 "use strict";
-const APP_VERSION='13';
+const APP_VERSION='19';
 
 /* ======================================================================
    CONFIGURACIÓN DE LA NUBE — completar UNA SOLA VEZ (ya está tu proyecto).
@@ -392,10 +425,10 @@ const $=s=>document.querySelector(s);
 const MES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 const DIA=['dom','lun','mar','mié','jue','vie','sáb'];
 const SUBJECT_COLORS=['#A8C3A0','#9FB8D3','#D9A79A','#DBC69A','#B8A8CC','#96C2BC','#D3A0B4','#B5B88A','#C9AC91','#A3B6BC'];
-/* Reparto por lado: izquierda usa índices 0,2,4,6 y derecha 1,3,5,7.
-   Secuencia elegida para que dentro de cada lado los tonos contrasten:
-   izq: teja(0) oliva(2) ocre(4) vino(6) · der: azul(1) ciruela(3) verdemar(5) pizarra(7) */
-const PATH_COLORS=['#B0604F','#3E6C8E','#7E9153','#8E5AA6','#C79A3B','#3E8E87','#9C4F6B','#55617A'];
+/* Cada lado toma una lista propia de colores VARIADOS (no cálidos vs fríos):
+   dentro de un lado se alternan familias (naranja, verde, azul, vino…). */
+const LEFT_COLORS =['#C2703B','#5E8C4E','#3E6C8E','#9C4F6B','#7E7A33'];   /* naranja, verde, azul, vino, oliva */
+const RIGHT_COLORS=['#B0554A','#3E8E87','#8E5AA6','#C79A3B','#55617A'];   /* teja, verdemar, violeta, ocre, pizarra */
 const GUT=16, LANE0=12;
 
 /* ---------- identidad del dispositivo y del usuario ---------- */
@@ -449,7 +482,8 @@ function normalize(){
     difTeoria:num(e.difTeoria,50),difPractica:num(e.difPractica,50),contenido:num(e.contenido,50),preparado:num(e.preparado,20),
     checklist:(e.checklist||[]).map(c=>({id:c.id||uid(),text:c.text,done:!!c.done}))}));
   state.paths=(state.paths||[]).map((p,i)=>({id:p.id||uid(),name:p.name||'Camino',
-    color:PATH_COLORS.includes(p.color)?p.color:PATH_COLORS[i%PATH_COLORS.length],examIds:p.examIds||[]}));
+    color:p.color||'#888',examIds:p.examIds||[]}));
+  if(!state.paths.some(p=>p.id===state.chosen))state.chosen=null;
   state.subjects=(state.subjects||[]).filter(s=>s&&s.name).map((s,i)=>({id:s.id||uid(),name:s.name,
     color:SUBJECT_COLORS.includes(s.color)?s.color:SUBJECT_COLORS[i%SUBJECT_COLORS.length],
     formato:s.formato||'teorico-practico',modalidad:s.modalidad||'escrito',
@@ -508,6 +542,8 @@ function render(){
   catch(err){
     $('#weeks').innerHTML='<div class="empty-note">Ocurrió un error al dibujar: <code>'+esc(err.message||err)+'</code></div>';
   }
+  if(dual&&document.body.classList.contains('dual'))renderCal('#calSideBody',true);
+  if(document.body.classList.contains('calfull'))renderCal('#calFullBody',false,true);
 }
 function renderInner(){
   document.body.classList.toggle('build',build);
@@ -569,8 +605,7 @@ function pathLane(k){return Math.floor(k/2);}    /* 0,0,1,1,2,2… dentro del la
    izquierda usa colores pares del arreglo, derecha los impares → nunca se repiten cerca */
 function autoColor(k){
   const side=pathSide(k), lane=pathLane(k);
-  const idx = side==='L' ? (lane*2)%PATH_COLORS.length : (lane*2+1)%PATH_COLORS.length;
-  return PATH_COLORS[idx];
+  return side==='L' ? LEFT_COLORS[lane%LEFT_COLORS.length] : RIGHT_COLORS[lane%RIGHT_COLORS.length];
 }
 function laneCounts(){
   let L=0,R=0; const n=state.paths.length+(build&&draft.length?1:0);
@@ -600,41 +635,41 @@ function drawRoutes(){
   const c=$('#content'); const W=c.scrollWidth;
   svg.setAttribute('width',W); svg.setAttribute('height',c.scrollHeight);
   const {ml,mr}=gutters();
-  /* lista de "trazos" a dibujar: cada camino + el borrador */
   const strokes=[];
   state.paths.forEach((p,k)=>strokes.push({k,ids:pathExams(p).map(e=>e.id),color:autoColor(k),dim:iso&&iso!==p.id,dash:false}));
   if(build&&draft.length)strokes.push({k:state.paths.length,ids:draft.slice(),color:autoColor(state.paths.length),dim:false,dash:true});
 
-  /* 1) rects de cada ficha visible */
   const rects={}; document.querySelectorAll('.card').forEach(el=>{rects[el.dataset.id]=cardRect(el.dataset.id);});
 
-  /* 2) recorrido vertical (span) de cada trazo, para anidar y ordenar puertos */
-  const spanY={}, centerY={};
+  /* carril por lado: mayor recorrido = más afuera (envuelve) */
+  const spanY={};
   strokes.forEach(s=>{
     const ys=s.ids.map(id=>rects[id]?rects[id].top+rects[id].h/2:null).filter(v=>v!=null);
-    if(ys.length){const mn=Math.min(...ys),mx=Math.max(...ys);spanY[s.k]=mx-mn;centerY[s.k]=(mn+mx)/2;}
-    else{spanY[s.k]=0;centerY[s.k]=0;}
+    spanY[s.k]=ys.length?Math.max(...ys)-Math.min(...ys):0;
   });
-  /* carril dentro de cada lado: el de mayor recorrido va más afuera (envuelve) */
   const sideLists={L:[],R:[]}; strokes.forEach(s=>sideLists[pathSide(s.k)].push(s.k));
-  const laneOf={};
-  ['L','R'].forEach(side=>{ sideLists[side].slice().sort((a,b)=>(spanY[a]-spanY[b])||(a-b)).forEach((k,i)=>laneOf[k]=i); });
+  const laneOf={}; ['L','R'].forEach(side=>{ sideLists[side].slice().sort((a,b)=>(spanY[a]-spanY[b])||(a-b)).forEach((k,i)=>laneOf[k]=i); });
 
-  /* 3) puertos por ficha y lado: el camino de mayor recorrido usa el puerto superior */
+  /* puertos por ficha y lado. Cada conexión sabe si SALE hacia abajo (down)
+     o si es una LLEGADA terminal. Llegadas arriba, salidas abajo; y dentro
+     de cada grupo el orden se invierte para que nada se cruce al nacer ni al llegar. */
   const byCardSide={};
-  strokes.forEach(s=>{const side=pathSide(s.k);s.ids.forEach(id=>{if(!rects[id])return;
-    (byCardSide[id]=byCardSide[id]||{L:[],R:[]})[side].push(s.k);});});
+  strokes.forEach(s=>{const side=pathSide(s.k);const vis=s.ids.filter(id=>rects[id]);
+    vis.forEach((id,idx)=>{(byCardSide[id]=byCardSide[id]||{L:[],R:[]})[side].push({k:s.k,down:idx<vis.length-1});});});
   const portOf={};
   Object.keys(byCardSide).forEach(id=>{
     const r=rects[id];
     ['L','R'].forEach(side=>{
-      const list=byCardSide[id][side].slice().sort((a,b)=>(laneOf[a]-laneOf[b])||(a-b));
+      const list=byCardSide[id][side].slice().sort((a,b)=>{
+        if(a.down!==b.down)return a.down?1:-1;                     /* llegadas primero (arriba) */
+        if(a.down)return (laneOf[b.k]-laneOf[a.k])||(a.k-b.k);     /* salidas: lejano arriba */
+        return (laneOf[a.k]-laneOf[b.k])||(a.k-b.k);               /* llegadas: lejano abajo */
+      });
       const n=list.length;
-      list.forEach((k,idx)=>{ const y=r.top + r.h*(idx+1)/(n+1); const x=side==='L'?r.left:r.right; portOf[k+':'+id]={x,y}; });
+      list.forEach((o,idx)=>{ const y=r.top + r.h*(idx+1)/(n+1); const x=side==='L'?r.left:r.right; portOf[o.k+':'+id]={x,y}; });
     });
   });
 
-  /* 4) dibujar cada trazo por su carril */
   let out='';
   strokes.forEach(s=>{
     const side=pathSide(s.k), lane=laneOf[s.k]||0;
@@ -652,7 +687,7 @@ function drawRoutes(){
 function togglePathMode(){ if(build){finishPath();return;} build=true;draft=[];iso=null;updateBar();render(); }
 function toggleDraft(id){const i=draft.indexOf(id);if(i>=0)draft.splice(i,1);else draft.push(id);applyPick();drawRoutes();updateBar();}
 function finishPath(){
-  if(draft.length>=2){state.paths.push({id:uid(),name:`Camino ${state.paths.length+1}`,color:PATH_COLORS[state.paths.length%PATH_COLORS.length],examIds:[...draft]});save();}
+  if(draft.length>=2){state.paths.push({id:uid(),name:`Camino ${state.paths.length+1}`,color:autoColor(state.paths.length),examIds:[...draft]});save();}
   build=false;draft=[];updateBar();render();
 }
 function updateBar(){
@@ -929,13 +964,14 @@ function renderPaths(){
       <div class="path-top"><span class="swatch" style="background:${autoColor(pk)}"></span><input class="pname" value="${esc(p.name)}" data-id="${p.id}">${p.id===best?'<span class="badge">+ llevadero</span>':''}</div>
       <div class="stops">${names}</div>
       <div class="stats"><div class="stat"><div class="k">Duración</div><div class="v">${s.span}</div></div><div class="stat"><div class="k">Descanso mín.</div><div class="v">${s.gap}</div></div><div class="stat"><div class="k">Dif. media</div><div class="v">${s.dif}</div></div></div>
-      <div class="path-actions"><button class="btn sm" data-a="exp" data-id="${p.id}">${open?'Ocultar':'Desglose'}</button><button class="btn sm" data-a="plan" data-id="${p.id}">Plan</button><button class="btn sm" data-a="iso" data-id="${p.id}">${iso===p.id?'Ver todos':'Resaltar'}</button><button class="btn sm" data-a="del" data-id="${p.id}">✕</button></div>${legs}</div>`;
+      <div class="path-actions"><button class="btn sm" data-a="choose" data-id="${p.id}" ${state.chosen===p.id?'style="border-color:var(--accent);color:var(--accent);font-weight:700"':''}>${state.chosen===p.id?'Elegido ✓':'Elegir'}</button><button class="btn sm" data-a="exp" data-id="${p.id}">${open?'Ocultar':'Desglose'}</button><button class="btn sm" data-a="plan" data-id="${p.id}">Plan</button><button class="btn sm" data-a="iso" data-id="${p.id}">${iso===p.id?'Ver todos':'Resaltar'}</button><button class="btn sm" data-a="del" data-id="${p.id}">✕</button></div>${legs}</div>`;
   }).join('');
   box.querySelectorAll('.pname').forEach(inp=>inp.onchange=()=>{const p=state.paths.find(p=>p.id===inp.dataset.id);if(p){p.name=inp.value.trim()||p.name;save();}});
   box.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
     const id=b.dataset.id,a=b.dataset.a;
     if(a==='del'){state.paths=state.paths.filter(p=>p.id!==id);if(iso===id)iso=null;expanded.delete(id);save();renderPaths();render();}
     else if(a==='iso'){iso=iso===id?null:id;renderPaths();render();}
+    else if(a==='choose'){state.chosen=(state.chosen===id)?null:id;save();renderPaths();render();}
     else if(a==='exp'){expanded.has(id)?expanded.delete(id):expanded.add(id);renderPaths();}
     else if(a==='plan'){openPlan(id);}
   });
@@ -983,8 +1019,10 @@ function renderPlan(){
 /* ---- overlays ---- */
 /* ---- calendario mensual (solo lectura) ---- */
 let calRef=null;
-function openCal(){const t=today();calRef=calRef||new Date(t.getFullYear(),t.getMonth(),1);renderCal();openOv('calOv');}
-function renderCal(){
+function openCal(){const t=today();calRef=calRef||new Date(t.getFullYear(),t.getMonth(),1);renderCal('#calBody',false);openOv('calOv');}
+function renderCal(sel,sideMode,fullMode){
+  sel=sel||'#calBody';
+  const box=document.querySelector(sel); if(!box)return;
   const y=calRef.getFullYear(),m=calRef.getMonth();
   const first=new Date(y,m,1), startOff=(first.getDay()+6)%7; /* lunes=0 */
   const gridStart=addDays(first,-startOff);
@@ -996,20 +1034,102 @@ function renderCal(){
   for(let i=0;i<42;i++){
     const d=addDays(gridStart,i), inMonth=d.getMonth()===m, key=ymd(d), items=byDate[key]||[];
     const isToday=ymd(d)===ymd(today());
-    const dots=items.slice(0,3).map(e=>`<span class="cal-dot" data-id="${e.id}" style="background:${rgba(e.color,0.55)}">${esc(itemIsEvent(e.id)?e.name:displayName(e))}</span>`).join('');
-    const more=items.length>3?`<span class="cal-more">+${items.length-3}</span>`:'';
-    cells+=`<div class="cal-cell ${inMonth?'':'out'} ${items.length?'hasx':''} ${isToday?'today':''}">
-      ${inMonth?`<span class="cnum">${d.getDate()}</span>${dots}${more}`:''}</div>`;
+    const dots=items.map(e=>`<span class="cal-dot" data-id="${e.id}" style="background:${rgba(e.color,0.55)}">${esc(itemIsEvent(e.id)?e.name:displayName(e))}</span>`).join('');
+    cells+=`<div class="cal-cell ${inMonth?'':'out'} ${items.length?'hasx':''} ${isToday?'today':''}" ${inMonth?`data-date="${key}"`:''}>
+      ${inMonth?`<span class="cnum">${d.getDate()}</span>${dots}`:''}</div>`;
     if(i>=34 && d.getMonth()!==m && addDays(gridStart,i+1).getMonth()!==m) break;
   }
-  $('#calBody').innerHTML=`
-    <div class="cal-nav"><button class="cbtn" id="calPrev">‹</button><div class="cmon">${monthName}</div><button class="cbtn" id="calNext">›</button></div>
-    <div class="cal-grid">${dows.map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells}</div>
-    ${(state.exams.length||state.events.length)?'<div class="cal-legend">'+dedupeSubjects().map(s=>`<span class="li"><span class="d" style="background:${rgba(s.color,0.55)}"></span>${esc(s.name)}</span>`).join('')+'</div>':'<div class="empty-note">No hay nada cargado todavía.</div>'}`;
-  $('#calPrev').onclick=()=>{calRef=new Date(y,m-1,1);renderCal();};
-  $('#calNext').onclick=()=>{calRef=new Date(y,m+1,1);renderCal();};
-  $('#calBody').querySelectorAll('.cal-dot').forEach(b=>b.onclick=()=>{closeOv('calOv');itemIsEvent(b.dataset.id)?openEvent(b.dataset.id):openExam(b.dataset.id);});
+  const modeBtns = fullMode
+    ? `<button class="cbtn txt cal-mode ${routesMode==='none'?'on':''}" data-m="none">Sin caminos</button><button class="cbtn txt cal-mode ${routesMode==='chosen'?'on':''}" data-m="chosen">Elegido</button>`
+    : '';
+  const dualBtn = sideMode
+    ? `<button class="cbtn cal-dual" title="Cerrar pantalla dividida">✕</button>`
+    : (window.innerWidth>=880?`<button class="cbtn cal-dual" title="Pantalla dividida"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg></button>`:'');
+  box.innerHTML=`
+    <div class="cal-nav"><button class="cbtn cal-prev">‹</button><div class="cmon">${monthName}</div><button class="cbtn cal-next">›</button>${modeBtns}${dualBtn}</div>
+    <div class="cal-grid ${sideMode?'compact':''}">${dows.map(d=>`<div class="cal-dow">${d}</div>`).join('')}${cells}</div>
+    ${(state.exams.length||state.events.length)?'<div class="cal-legend">'+dedupeSubjects().map(s=>`<span class="li"><span class="d" style="background:${rgba(s.color,0.55)}"></span>${esc(s.name)}</span>`).join('')+'</div>':'<div class="empty-note">'+(fullMode?'Tocá un día para agendar tu primer evento.':'No hay nada cargado todavía.')+'</div>'}`;
+  box.querySelector('.cal-prev').onclick=()=>{calRef=new Date(y,m-1,1);renderCal(sel,sideMode,fullMode);if(fullMode)drawCalRoutes();};
+  box.querySelector('.cal-next').onclick=()=>{calRef=new Date(y,m+1,1);renderCal(sel,sideMode,fullMode);if(fullMode)drawCalRoutes();};
+  const db=box.querySelector('.cal-dual');
+  if(db)db.onclick=()=>{ sideMode?setDual(false):(closeOv('calOv'),setViewMode('list'),setDual(true)); };
+  if(fullMode){
+    box.querySelectorAll('.cal-mode').forEach(b=>b.onclick=()=>{
+      const m=b.dataset.m;
+      routesMode=(routesMode===m)?'all':m;
+      lsSet('rf-rmode',routesMode);
+      if(routesMode==='chosen'&&!state.chosen){openOv('pathsOv');}
+      renderCal(sel,sideMode,fullMode);
+    });
+    const chosenSet=(routesMode==='chosen'&&state.chosen)?new Set((state.paths.find(p=>p.id===state.chosen)||{examIds:[]}).examIds):null;
+    box.querySelectorAll('.cal-dot').forEach(b=>{
+      b.classList.toggle('picked',draft.indexOf(b.dataset.id)>=0);
+      if(chosenSet)b.classList.toggle('grey',!chosenSet.has(b.dataset.id));
+      b.onclick=ev=>{ev.stopPropagation();
+        if(build){toggleDraft(b.dataset.id);b.classList.toggle('picked',draft.indexOf(b.dataset.id)>=0);drawCalRoutes();}
+        else itemIsEvent(b.dataset.id)?openEvent(b.dataset.id):openExam(b.dataset.id);};
+    });
+    box.querySelectorAll('.cal-cell[data-date]').forEach(cell=>{
+      cell.onclick=ev=>{ if(build)return; if(ev.target.closest('.cal-dot'))return; openNewAt(cell.dataset.date); };
+    });
+    requestAnimationFrame(drawCalRoutes);
+  }else{
+    box.querySelectorAll('.cal-dot').forEach(b=>b.onclick=()=>{closeOv('calOv');itemIsEvent(b.dataset.id)?openEvent(b.dataset.id):openExam(b.dataset.id);});
+  }
 }
+function openNewAt(date){ openExam(); form.date=date; renderEditor(); }
+/* rutas dibujadas SOBRE el calendario (modo completo) */
+let routesMode=lsGet('rf-rmode')||'all'; /* all | none | chosen */
+function drawCalRoutes(){
+  const svg=$('#calRoutes'); if(!svg||!document.body.classList.contains('calfull'))return;
+  const cont=$('#calFullContent');
+  svg.setAttribute('width',cont.scrollWidth); svg.setAttribute('height',cont.scrollHeight);
+  const cr=cont.getBoundingClientRect();
+  const centerOf=id=>{const el=document.querySelector('#calFullBody .cal-dot[data-id="'+id+'"]');if(!el)return null;
+    const r=el.getBoundingClientRect();return {x:r.left-cr.left+r.width/2,y:r.top-cr.top+r.height/2};};
+  const strokes=[];
+  state.paths.forEach((p,k)=>{
+    if(routesMode==='none')return;
+    if(routesMode==='chosen'&&p.id!==state.chosen)return;
+    strokes.push({ids:pathExams(p).map(e=>e.id),color:autoColor(k),dim:iso&&iso!==p.id,dash:false});
+  });
+  if(build&&draft.length)strokes.push({ids:draft.slice(),color:autoColor(state.paths.length),dim:false,dash:true});
+  let out='';
+  strokes.forEach(s=>{
+    const pts=s.ids.map(centerOf).filter(Boolean);
+    if(pts.length<1)return;
+    const op=s.dim?0.12:0.9;
+    if(pts.length>1){
+      let d=`M ${pts[0].x} ${pts[0].y}`;
+      for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i];const my=(a.y+b.y)/2;
+        d+=` C ${a.x} ${my}, ${b.x} ${my}, ${b.x} ${b.y}`;}
+      out+=`<path d="${d}" fill="none" stroke="#FCFBF9" stroke-width="6" stroke-linecap="round" opacity="${s.dim?0.1:0.85}"/>`;
+      out+=`<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2.5" stroke-linecap="round" ${s.dash?'stroke-dasharray="2 7"':''} opacity="${op}"/>`;
+    }
+    pts.forEach(pt=>{out+=`<circle cx="${pt.x}" cy="${pt.y}" r="3.5" fill="#FCFBF9" stroke="${s.color}" stroke-width="2" opacity="${s.dim?0.12:1}"/>`;});
+  });
+  svg.innerHTML=out;
+}
+/* ---- alternar vista lista / calendario completo ---- */
+let viewMode=(lsGet('rf-view')==='cal')?'cal':'list';
+function setViewMode(v){
+  viewMode=v;lsSet('rf-view',v);
+  document.body.classList.toggle('calfull',v==='cal');
+  if(v==='cal'){document.body.classList.remove('dual');
+    const t=today();calRef=calRef||new Date(t.getFullYear(),t.getMonth(),1);
+    renderCal('#calFullBody',false,true);}
+  else refreshDual();
+  requestAnimationFrame(drawRoutes);
+}
+/* ---- modo dual (lista + calendario lado a lado) ---- */
+let dual=(lsGet('rf-dual')==='1');
+function setDual(on){
+  dual=on;lsSet('rf-dual',on?'1':'0');
+  document.body.classList.toggle('dual',on&&window.innerWidth>=880);
+  if(dual){const t=today();calRef=calRef||new Date(t.getFullYear(),t.getMonth(),1);renderCal('#calSideBody',true);}
+  requestAnimationFrame(drawRoutes);
+}
+function refreshDual(){ if(dual&&window.innerWidth>=880){document.body.classList.add('dual');renderCal('#calSideBody',true);} else document.body.classList.remove('dual'); }
 function dedupeSubjects(){
   const seen={},out=[];
   state.exams.concat(state.events).forEach(e=>{const k=e.name;if(!seen[k]){seen[k]=1;out.push({name:e.name,color:e.color});}});
@@ -1185,7 +1305,7 @@ $('#addBtn').onclick=()=>openExam();
 $('#pathBtn').onclick=togglePathMode;
 $('#pathsBtn').onclick=()=>openOv('pathsOv');
 $('#syncPill').onclick=()=>openOv('syncOv');
-$('#calPill').onclick=openCal;
+$('#calPill').onclick=()=>setViewMode(viewMode==='cal'?'list':'cal');
 $('#examSave').onclick=saveExam;
 $('#repConfirm').onclick=confirmRepeat;
 $('#subjAdd').onclick=newSubject;
@@ -1198,11 +1318,11 @@ $('#syncOff').onclick=logout;
 $('#syncCode').onkeydown=e=>{if(e.key==='Enter')enterCode();};
 $('#ioExport').onclick=()=>{const t=$('#ioBox');t.value=JSON.stringify(state);t.select();try{document.execCommand('copy');}catch(e){}status('Datos copiados. Pegalos en el otro dispositivo y tocá “Cargar pegados”.','');};
 $('#ioImport').onclick=()=>{try{const d=JSON.parse($('#ioBox').value.trim());if(!d||!d.exams)throw 0;state=d;normalize();save();render();status('Datos cargados.','on');}catch(e){status('No pude leer esos datos.','err');}};
-window.addEventListener('resize',()=>requestAnimationFrame(drawRoutes));
+window.addEventListener('resize',()=>{refreshDual();requestAnimationFrame(drawRoutes);});
 if(window.ResizeObserver)new ResizeObserver(()=>requestAnimationFrame(drawRoutes)).observe($('#content'));
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>requestAnimationFrame(drawRoutes));
 
-updateBar();setDot('');render();
+updateBar();setDot('');render();refreshDual();if(viewMode==='cal')setViewMode('cal');
 /* si ya hay usuario guardado, entrar directo; si no, pedir el código */
 if(CLOUD_READY){
   if(USER)login(USER);
